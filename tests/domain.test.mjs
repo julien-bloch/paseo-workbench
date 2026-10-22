@@ -4,7 +4,7 @@ import { groupProjects, hierarchyRows, projectKey, isAttention, attentionHeadlin
 import { planLaunchMode, escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from '../.unit-dist/permissions.js';
 import { transcriptRows, transcriptText } from '../.unit-dist/transcript.js';
 import { parseQuestions, buildAnswers, toggleChoice } from '../.unit-dist/questions.js';
-import { migrateToV8, coordinatorInstructionsFor, preferences, isCoordinatorHome } from '../.unit-dist/settings.js';
+import { migrateToV8, migrateToV9, coordinatorInstructionsFor, preferences, isCoordinatorHome } from '../.unit-dist/settings.js';
 import { coordinatorBrief, specialistPrompt } from '../.unit-dist/prompts.js';
 
 const ws={serverId:'mac',workspaceId:'work1',projectId:'xdflow',projectName:'XDFlow',name:'main',directory:'/src/xdflow',status:'running'};
@@ -311,9 +311,16 @@ test('import: Export JSON or a bare list; same id replaces; invalid or over-limi
 test('defaults: the specialist set, in order, generic, with the Reviewer on a committee',()=>{
   const fresh=preferences.schema.parse({});
   assert.deepEqual(fresh.helpers.map(h=>h.id),['coordinator','reviewer','experiment-reviewer','debugger','session-summarizer','pr-manager']);
+  assert.equal(fresh.helpers[0].name,'Coordinator');
   assert.equal(fresh.helpers.find(h=>h.id==='reviewer').defaultReview,'committee');
   assert.ok(fresh.helpers.find(h=>h.id==='coordinator').coordinatorOnly);
   assert.ok(fresh.helpers.every(h=>Array.isArray(h.skills)&&!h.skills.length));
   assert.equal(fresh.helpers.find(h=>h.id==='experiment-reviewer').requireReadOnly,true);
   assert.deepEqual(fresh.coordinators.map(c=>c.id),['default']);
+});
+
+test('settings v9: an unchanged "General coordinator" becomes "Coordinator"; a chosen name stays',()=>{
+  assert.equal(migrateToV9({helpers:[{id:'coordinator',name:'General coordinator'}]}).helpers[0].name,'Coordinator');
+  assert.equal(migrateToV9({helpers:[{id:'coordinator',name:'Lead'}]}).helpers[0].name,'Lead');
+  assert.equal(preferences.migrate({helpers:[{id:'coordinator',name:'General coordinator'}]},8).helpers[0].name,'Coordinator');
 });

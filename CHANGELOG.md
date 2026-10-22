@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.14 — 2026-10-22
+- "General coordinator" is now just **Coordinator** (settings v9 renames it if you had not renamed it yourself), and it can run **In a workspace**: a coordinator for that one workspace.
+- Settings: a separate **+ New specialist** button opens its own panel (name, Create, Cancel).
+
 ## 0.1.0-alpha.13 — 2026-10-22
 - Removed pre-release settings upgrades and the old built-in texts they compared against; documents from before alpha.9 load as stored.
 - Neutral examples in Settings and docs.

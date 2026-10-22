@@ -38,6 +38,7 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
   const [customName,setCustomName]=useState("");
   const [confirmDelete,setConfirmDelete]=useState("");
   const [showExample,setShowExample]=useState(false);
+  const [creating,setCreating]=useState(false);
   async function deleteSpecialist(id:string){
     if(confirmDelete!==id){setConfirmDelete(id);return;}
     setConfirmDelete("");
@@ -59,7 +60,7 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
     if(!customName.trim())return;
     const id=`custom-${Date.now().toString(36)}`;
     const created:Specialist={id,name:customName.trim().slice(0,80),description:"Custom specialist",instructions:`You are a ${customName.trim()} specialist. Follow the user's task and project context. Explain findings, evidence, and limitations. Do not commit or push without explicit authorization.`,model:"",modeId:"",requireReadOnly:true,secondOpinionModel:"",defaultReview:"single",coordinatorOnly:false,skills:[]};
-    if(await save({...values,helpers:[...values.helpers,created]},false)){setSpecialistId(id);setCustomName("");}
+    if(await save({...values,helpers:[...values.helpers,created]},false)){setSpecialistId(id);setCustomName("");setCreating(false);}
   }
 
   const draft=helper.draft;
@@ -102,7 +103,19 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
       <Button theme={theme} subtle label={showExample?"Hide file format":"Show file format"} onPress={()=>setShowExample(!showExample)}/>
       {showExample?<Text selectable style={{color:theme.colors.foreground,fontSize:11,backgroundColor:theme.colors.surface2,padding:10,borderRadius:8}}>{EXAMPLE}</Text>:null}
     </Section>
-    <Section theme={theme} title="Specialists" subtitle="Pick one to edit it. Saved changes apply to the next launches; running agents keep what they started with.">
+    <Section theme={theme} title="Specialists" subtitle="Saved changes apply to the next launches; running agents keep what they started with.">
+      <Button theme={theme} label="+ New specialist" disabled={busy||creating||values.helpers.length>=20} onPress={()=>{setCreating(true);setConfirmDelete("")}}/>
+      {creating?<View style={{gap:8,padding:12,borderWidth:1,borderColor:theme.colors.accent,borderRadius:10}}>
+        <Text style={{color:theme.colors.foreground,fontSize:14,fontWeight:"700"}}>New specialist</Text>
+        <Text style={{color:theme.colors.foregroundMuted,fontSize:11}}>Starts blank: generic instructions, read-only, the default model. After you create it, it opens below so you can write its instructions.</Text>
+        <Field theme={theme} label="Name" value={customName} onChangeText={setCustomName} placeholder="e.g. Performance auditor"/>
+        <Wrap>
+          <Button theme={theme} label="Create" disabled={busy||!customName.trim()} onPress={()=>void addSpecialist()}/>
+          <Button theme={theme} label="Cancel" subtle onPress={()=>{setCreating(false);setCustomName("")}}/>
+        </Wrap>
+      </View>:null}
+      {!creating?<>
+      <Text style={{color:theme.colors.foreground,fontSize:12,fontWeight:"600"}}>Edit a specialist</Text>
       <Wrap>{values.helpers.map(h=><Choice key={h.id} theme={theme} label={h.name} selected={specialistId===h.id} onPress={()=>{setSpecialistId(h.id);setConfirmDelete("")}}/>)}</Wrap>
       {draft?<>
         {folder.files[draft.id]?<Notice theme={theme} kind="error" text={`${folder.files[draft.id]} in your folder replaces this one at launch. Edit that file instead.`}/>:null}
@@ -140,12 +153,7 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
           <Button theme={theme} label={confirmDelete===draft.id?`Confirm: delete ${draft.name}`:`Delete ${draft.name}`} subtle disabled={busy} onPress={()=>void deleteSpecialist(draft.id)}/>
         </Wrap>
       </>:null}
-      <View style={{gap:8,borderTopWidth:1,borderColor:theme.colors.border,paddingTop:12}}>
-        <Text style={{color:theme.colors.foreground,fontSize:13,fontWeight:"600"}}>Create a new specialist</Text>
-        <Text style={{color:theme.colors.foregroundMuted,fontSize:11}}>Starts blank, not from the one selected above: generic instructions, read-only, the default model. It is then selected above so you can write its instructions and save.</Text>
-        <Field theme={theme} label="Name" value={customName} onChangeText={setCustomName} placeholder="e.g. Performance auditor"/>
-        <Button theme={theme} label="Create" disabled={busy||!customName.trim()||values.helpers.length>=20} subtle onPress={()=>void addSpecialist()}/>
-      </View>
+      </>:null}
     </Section>
     {notice?<Notice theme={theme} {...notice}/>:null}
     <Text style={{color:theme.colors.foregroundMuted,fontSize:11,lineHeight:17}}>Workbench starts agents only when you press Launch or on schedules you create; coordinators then act on their own as the Launch tab describes. It never bypasses Paseo permissions. The provider enforces the execution mode.</Text>
