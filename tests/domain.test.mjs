@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupProjects, hierarchyRows, projectKey, isAttention, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, withTeam, finishedSpecialists, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
+import { groupProjects, hierarchyRows, projectKey, isAttention, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, withTeam, finishedSpecialists, sidebarCounts, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
 import { planLaunchMode, escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from '../.unit-dist/permissions.js';
 import { transcriptRows, transcriptText } from '../.unit-dist/transcript.js';
 import { parseQuestions, buildAnswers, toggleChoice } from '../.unit-dist/questions.js';
@@ -336,4 +336,12 @@ test('archive: only done, non-coordinator agents; a specialist goes with its rev
   assert.deepEqual([rev,member,busy,asking,coord,mine].map(archivable),[true,true,false,false,false,true]);
   assert.deepEqual(withTeam([rev,member,mine],'s','rev'),['rev','mem']);
   assert.deepEqual(finishedSpecialists([rev,member,busy,asking,coord,mine]).map(a=>a.agentId),['rev'],'not team members, busy, asking, coordinators or your own agents');
+});
+
+test('sidebar counts: attention items like the header, plus agents running or starting',()=>{
+  const ag=(id,o={})=>({serverId:'s',agentId:id,workspaceId:'w',title:id,status:'idle',model:'',provider:'',updatedAt:'',labels:{},requiresAttention:false,pendingPermissionCount:0,archived:false,...o});
+  const agents=[ag('ask',{requiresAttention:true,attentionReason:'permission',pendingPermissionCount:1}),ag('run',{status:'running'}),ag('init',{status:'initializing'}),ag('idle')];
+  const projects=groupProjects([{serverId:'s',workspaceId:'w',projectId:'p',projectName:'P',name:'main',directory:'/x',status:'active'}],agents);
+  assert.deepEqual(sidebarCounts(agents,projects),{attention:attentionGroups(agents,projects).reduce((n,g)=>n+g.items.length,0),running:2});
+  assert.ok(sidebarCounts(agents,projects).attention>=1);
 });

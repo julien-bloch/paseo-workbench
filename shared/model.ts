@@ -311,3 +311,11 @@ export function withTeam(agents: readonly WorkbenchAgent[], serverId: string, ag
 export function finishedSpecialists(agents: readonly WorkbenchAgent[]): WorkbenchAgent[] {
   return agents.filter((a) => a.labels[SPECIALIST_LABEL] && !a.labels[PARENT_AGENT_ID_LABEL] && archivable(a));
 }
+
+/** The two numbers on the sidebar badge, counted like Workbench's header: what needs you, and what is working. */
+export function sidebarCounts(agents: readonly WorkbenchAgent[], projects: readonly ProjectGroup[]): { attention: number; running: number } {
+  return {
+    attention: attentionGroups(agents, projects).reduce((n, g) => n + g.items.length, 0),
+    running: agents.filter((a) => !a.archived && (a.status === "running" || a.status === "initializing")).length,
+  };
+}

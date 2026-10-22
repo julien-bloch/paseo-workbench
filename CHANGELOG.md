@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.0-alpha.19 — 2026-10-22
+- Sidebar badge beside Workbench: agents that need you (amber) and agents working (▶).
+
 ## 0.1.0-alpha.18 — 2026-10-22
 - Session summarizer from Launch: "An agent's conversation" lists the workspace's agents to pick from (the default for the summarizer); the conversation is read from Paseo into its prompt.
 

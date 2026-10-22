@@ -1,11 +1,8 @@
-import type { PluginClientContext, PluginSidebarItemProps } from "@getpaseo/plugin/client";
-import { SidebarRow } from "@getpaseo/plugin/client/ui";
+import type { PluginClientContext } from "@getpaseo/plugin/client";
 import { WorkbenchScreen } from "./client/WorkbenchScreen";
+import { SidebarItem } from "./client/SidebarItem";
 import { WorkspaceSpecialistsPanel, AgentReviewPanel } from "./client/SpecialistsPanel";
 
-function SidebarItem({currentScreen,openScreen}:PluginSidebarItemProps){
-  return <SidebarRow icon="LayoutDashboard" active={currentScreen?.screenId==="workbench"} onPress={()=>openScreen({screenId:"workbench"})}/>;
-}
 export default function contribute(client:PluginClientContext) {
   client.addScreen({id:"workbench",title:"Workbench",Component:WorkbenchScreen});
   client.addSidebarHeaderItem({id:"workbench",title:"Workbench",Component:SidebarItem});
