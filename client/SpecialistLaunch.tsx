@@ -38,7 +38,11 @@ export function describeMode(mode:LaunchMode):string {
 
 export function SpecialistLaunch({theme,specialistId,paseo,settings,project,workspace,parentAgentId,onCreated,embedded=false,schedule=null,onScheduled}:SpecialistLaunchProps){
   const [selectedId,setSelectedId]=useState("reviewer");
-  const firstScope=(id:string):SpecialistScope=>id==="reviewer"?"working-tree":id==="session-summarizer"&&parentAgentId?"session":"task";
+  // Conversations that can be summarized here: the agent this panel belongs to, or any agent in this workspace.
+  const conversations=parentAgentId?[]:project.agents.filter(a=>a.workspaceId===workspace.workspaceId&&!a.archived).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+  const [sessionId,setSessionId]=useState(parentAgentId??conversations[0]?.agentId??"");
+  const sessionTitle=parentAgentId?"this agent":conversations.find(a=>a.agentId===sessionId)?.title??"";
+  const firstScope=(id:string):SpecialistScope=>id==="reviewer"?"working-tree":id==="session-summarizer"&&(parentAgentId||conversations.length)?"session":"task";
   const [chosenScope,setScope]=useState<SpecialistScope>(()=>firstScope(specialistId??"reviewer"));
   const [prWatch,setPrWatch]=useState<PrWatch[]>(["mine"]);
   const [task,setTask]=useState("");
@@ -91,7 +95,7 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
       return;
     }
     try{
-      const result=await createSpecialist({paseo,helper,settings,project,workspace,scope,task,prWatch,...(scope==="pull-request"?{prNumber:pr}:{}),...(scope==="session"&&parentAgentId?{sessionAgentId:parentAgentId}:{}),...(parentAgentId&&scope!=="session"?{parentAgentId}:{}),review,registerPair:(primaryId,secondId,mode,failure)=>register({primaryId,secondId,mode,...(failure?{failure}:{})})});
+      const result=await createSpecialist({paseo,helper,settings,project,workspace,scope,task,prWatch,...(scope==="pull-request"?{prNumber:pr}:{}),...(scope==="session"&&sessionId?{sessionAgentId:sessionId}:{}),...(parentAgentId&&scope!=="session"?{parentAgentId}:{}),review,registerPair:(primaryId,secondId,mode,failure)=>register({primaryId,secondId,mode,...(failure?{failure}:{})})});
       const second=!result.secondOpinion?"":review==="committee"
         ?` Committee member: ${result.secondOpinion.model} (${result.secondOpinion.agentId}). Workbench exchanges their reviews when both are idle, then ${helper.name} writes the consensus.`
         :` Second opinion: ${result.secondOpinion.model} (${result.secondOpinion.agentId}); its findings go to ${helper.name} automatically when both are idle.`;
@@ -105,7 +109,8 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
     {id:"branch",name:"This branch",about:"Everything on this workspace's branch, compared with the branch it came from."},
     ...(schedule?[]:[{id:"pull-request",name:"A pull request",about:"A GitHub pull request by number, checked out in a new worktree; your files are not touched."}] as const),
     {id:"task",name:"Something else",about:"Only what you describe below."},
-    ...(parentAgentId&&!schedule?[{id:"session",name:"This agent's session",about:"This agent's conversation, read from Paseo."}] as const:[]),
+    ...(parentAgentId&&!schedule?[{id:"session",name:"This agent's session",about:"This agent's conversation, read from Paseo."}] as const
+      :conversations.length&&!schedule?[{id:"session",name:"An agent's conversation",about:"The conversation of an agent in this workspace, read from Paseo. Pick it below."}] as const:[]),
   ] as const;
   const togglePr=(w:PrWatch)=>setPrWatch(w==="all"?(prWatch.includes("all")?[]:["all"]):prWatch.includes(w)?prWatch.filter(x=>x!==w):[...prWatch.filter(x=>x!=="all"),w]);
   const body=<>
@@ -122,6 +127,7 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
       <Text style={{color:theme.colors.foreground,fontSize:12,fontWeight:"600"}}>What should it look at?</Text>
       <Wrap>{scopes.map(s=><Choice key={s.id} theme={theme} label={s.name} selected={scope===s.id} onPress={()=>setScope(s.id)}/>)}</Wrap>
       <Text style={{color:theme.colors.foregroundMuted,fontSize:11}}>{scopes.find(s=>s.id===scope)?.about}</Text>
+      {scope==="session"&&!parentAgentId?<Wrap>{conversations.slice(0,20).map(a=><Choice key={a.agentId} theme={theme} label={a.title} selected={sessionId===a.agentId} onPress={()=>setSessionId(a.agentId)}/>)}</Wrap>:null}
     </>}
     {scope==="pull-request"?<Field theme={theme} label="Pull request number" value={prNumber} onChangeText={setPrNumber} placeholder="e.g. 42" helper="Fetched with git (refs/pull/N/head from this repository's GitHub remote) into a new worktree workspace. Your current checkout is not touched."/>:null}
     {helper&&!schedule&&!isPr?<>
@@ -141,7 +147,7 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
     <Field theme={theme} label={scope==="task"?"What should it do?":"Anything else it should know? (optional)"} value={task} multiline onChangeText={setTask} placeholder={scope==="task"?"Required: describe the task":"e.g. focus on the data loading"}/>
     {helper?<Button theme={theme} subtle label={showPrompt?"Hide prompt":"Show prompt"} onPress={()=>setShowPrompt(!showPrompt)}/>:null}
     {helper&&showPrompt?(()=>{
-      const base=promptInput({helper,settings,project,scope,task,prWatch,...(scope==="pull-request"&&pr>0?{prNumber:pr}:{}),...(scope==="session"&&parentAgentId?{session:{agentId:parentAgentId,title:"this agent",transcript:"(the agent's conversation is read from Paseo and inserted here at launch)"}}:{})});
+      const base=promptInput({helper,settings,project,scope,task,prWatch,...(scope==="pull-request"&&pr>0?{prNumber:pr}:{}),...(scope==="session"&&sessionId?{session:{agentId:sessionId,title:sessionTitle,transcript:"(the agent's conversation is read from Paseo and inserted here at launch)"}}:{})});
       const withSecond=team&&secondMode;
       const block=(title:string,text:string)=><>
         <Text style={{color:theme.colors.foreground,fontSize:12,fontWeight:"600"}}>{title}</Text>
@@ -153,7 +159,7 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
         {withSecond?block(`${teamLabel} prompt (${secondModel})`,specialistPrompt({...base,secondOpinion:review==="committee"?{role:"member" as const,model}:{role:"second" as const}})):null}
       </>;
     })():null}
-    <Button theme={theme} label={busy?"Launching…":schedule?`Schedule ${helper?.name||"specialist"}`:`Launch ${helper?.name||"specialist"}`} onPress={()=>void launch()} disabled={busy||!helper||!model||!mode||(scope==="pull-requests"&&!prWatch.length)||(scope==="task"&&!task.trim())||(scope==="pull-request"&&!(Number.isInteger(pr)&&pr>0))||(!!schedule&&(!schedule.cron||scope==="pull-request"||scope==="session"||(scope==="task"&&!task.trim())))||(team&&!secondMode)}/>
+    <Button theme={theme} label={busy?"Launching…":schedule?`Schedule ${helper?.name||"specialist"}`:`Launch ${helper?.name||"specialist"}`} onPress={()=>void launch()} disabled={busy||!helper||!model||!mode||(scope==="session"&&!sessionId)||(scope==="pull-requests"&&!prWatch.length)||(scope==="task"&&!task.trim())||(scope==="pull-request"&&!(Number.isInteger(pr)&&pr>0))||(!!schedule&&(!schedule.cron||scope==="pull-request"||scope==="session"||(scope==="task"&&!task.trim())))||(team&&!secondMode)}/>
     {notice?<Notice theme={theme} {...notice}/>:null}
   </>;
   // Not a component defined here: that would remount the fields (and drop focus) on every keystroke.

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.0-alpha.18 — 2026-10-22
+- Session summarizer from Launch: "An agent's conversation" lists the workspace's agents to pick from (the default for the summarizer); the conversation is read from Paseo into its prompt.
+
 ## 0.1.0-alpha.17 — 2026-10-22
 - Archive buttons only in Overview (not in Command's Needs attention or a coordinator's tree).
 - **Worktrees** list in Overview: every Paseo worktree on the host with agents, activity and uncommitted changes; Remove (Paseo's archive) asks before discarding changes.

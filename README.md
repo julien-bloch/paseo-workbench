@@ -1,6 +1,6 @@
 # Workbench for Paseo
 
-**Status: 0.1.0-alpha.17. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
+**Status: 0.1.0-alpha.18. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
 
 Workbench adds a cross-project overview, Coordinators that orchestrate agents, and independent reusable specialist agents (with an opt-in second opinion) to Paseo. It uses native Paseo agents, workspaces, agent labels, plugin settings, and the existing mobile-compatible plugin UI. It does not replace Claude Code's own delegation, create a mission engine, or change Paseo's core.
 
@@ -24,7 +24,7 @@ Workbench adds a cross-project overview, Coordinators that orchestrate agents, a
 - **Read-only boundary for specialists** (on by default): see below.
 - **Workspace and agent panels**, plus Command Center entries ("Open Workbench specialists", "Review agent work independently"). A review launched from an agent is shown as its child; it does not inherit the conversation.
 - **Overview**: the tree of who started what (managed agents by Paseo's parent label, provider-native subagents observed **live only**), each node with what it waits on from you, and **Summarize** on any agent.
-- **Session summarizer**: from an agent's panel ("This agent's session") or **Summarize** in a tree, a read-only specialist reads that agent's conversation (from Paseo; nothing is written to your repository), checks its claims against the repository, and reports decisions, changes, verified vs claimed, open questions and next steps.
+- **Session summarizer**: from **Launch** (In a workspace → "An agent's conversation" → pick the agent), from an agent's panel ("This agent's session"), or **Summarize** in a tree, a read-only specialist reads that agent's conversation (from Paseo; nothing is written to your repository), checks its claims against the repository, and reports decisions, changes, verified vs claimed, open questions and next steps.
 - **Needs attention** from Paseo's own agent state, grouped by project, most urgent first: why each agent needs you, the exact command/file/URL of a pending permission, the error, and how long ago. Agents started by another agent (committee members, a Coordinator's workers) only show permissions and failures, labeled with who started them. No LLM classification.
 - **Specialists** can be added (**+ New specialist**), edited and deleted in Settings.
 
