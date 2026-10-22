@@ -40,6 +40,11 @@ export const scheduleRow = z.object({
   id: z.string(), name: z.string(), cadence: z.string(), status: z.string(), nextRunAt: z.string().nullable(),
   /** "workspace": a new agent each run. "check-in": a recurring message to a running Coordinator. */
   kind: z.enum(["workspace", "check-in"]), agentId: z.string().optional(),
+  /** Workspace schedules: the latest runs, newest first. Paseo archives each run's agent when it ends and keeps its result here. */
+  runs: z.array(z.object({
+    id: z.string(), startedAt: z.string().nullable(), endedAt: z.string().nullable(), status: z.string(),
+    agentId: z.string().nullable(), output: z.string().nullable(), error: z.string().nullable(),
+  })).default([]),
 });
 export type ScheduleRow = z.infer<typeof scheduleRow>;
 

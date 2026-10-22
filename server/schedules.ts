@@ -32,21 +32,31 @@ export async function createWorkbenchSchedule(paseo: PaseoApi, input: RpcInput<t
     if (!(await readState()).coordinators[target.agentId]) throw new Error("Only a running Workbench coordinator can get scheduled check-ins.");
     const row = await cli(["heartbeat", "create", ...cadence, "--", input.prompt], target.agentId) as CliRow;
     await updateState((s) => { (s.checkIns ??= {})[row.id] = { agentId: target.agentId, name, cadence: row.cadence }; });
-    return { id: row.id, name, cadence: row.cadence, status: row.status, nextRunAt: row.nextRunAt, kind: "check-in", agentId: target.agentId };
+    return { id: row.id, name, cadence: row.cadence, status: row.status, nextRunAt: row.nextRunAt, kind: "check-in", agentId: target.agentId, runs: [] };
   }
   if (target.modeId && escalation({ modeId: target.modeId })) throw new Error(`Workbench does not schedule agents in mode ${target.modeId}.`);
   const cwd = await workspaceDirectory(paseo, target.workspaceId);
   const row = await cli(["schedule", "create", ...cadence, `--provider=${target.providerModel}`, ...(target.modeId ? [`--mode=${target.modeId}`] : []), `--cwd=${cwd}`, "--", input.prompt]) as CliRow;
-  return { id: row.id, name, cadence: row.cadence, status: row.status, nextRunAt: row.nextRunAt, kind: "workspace" };
+  return { id: row.id, name, cadence: row.cadence, status: row.status, nextRunAt: row.nextRunAt, kind: "workspace", runs: [] };
+}
+
+type CliRun = { id: string; startedAt?: string | null; endedAt?: string | null; status?: string; agentId?: string | null; output?: string | null; error?: string | null };
+const RUNS_SHOWN = 10;
+
+/** A schedule's latest runs, newest first, results cut to a readable size. */
+async function recentRuns(id: string): Promise<ScheduleRow["runs"]> {
+  const runs = ((await cli(["schedule", "inspect", id]) as { runs?: CliRun[] }).runs ?? []).slice(-RUNS_SHOWN).reverse();
+  return runs.map((r) => ({ id: r.id, startedAt: r.startedAt ?? null, endedAt: r.endedAt ?? null, status: r.status ?? "unknown", agentId: r.agentId ?? null, output: r.output ? r.output.slice(0, 4000) : null, error: r.error ?? null }));
 }
 
 export async function listWorkbenchSchedules(): Promise<{ schedules: ScheduleRow[] }> {
   const rows = (await cli(["schedule", "ls"]) as CliRow[]).filter((r) => r.name.startsWith(PREFIX));
   const checkIns = Object.entries((await readState()).checkIns ?? {});
+  const runs = await Promise.all(rows.map((r) => recentRuns(r.id).catch(() => [])));
   return { schedules: [
-    ...rows.map((r) => ({ id: r.id, name: r.name, cadence: r.cadence, status: r.status, nextRunAt: r.nextRunAt, kind: "workspace" as const })),
+    ...rows.map((r, i) => ({ id: r.id, name: r.name, cadence: r.cadence, status: r.status, nextRunAt: r.nextRunAt, kind: "workspace" as const, runs: runs[i]! })),
     // The CLI cannot list heartbeats, so these come from what Workbench recorded when it created them.
-    ...checkIns.map(([id, c]) => ({ id, name: c.name, cadence: c.cadence, status: "active", nextRunAt: null, kind: "check-in" as const, agentId: c.agentId })),
+    ...checkIns.map(([id, c]) => ({ id, name: c.name, cadence: c.cadence, status: "active", nextRunAt: null, kind: "check-in" as const, agentId: c.agentId, runs: [] })),
   ] };
 }
 

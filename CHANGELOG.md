@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.16 — 2026-10-22
+- Schedules list each run (time, status, result, Open). Paseo already archives a run's agent when it ends.
+- **Archive** finished or failed agents from Needs attention, Overview and a coordinator's tree; **Archive finished specialists** in Overview clears all finished Workbench specialists (with their review teams) after a confirm.
+
 ## 0.1.0-alpha.15 — 2026-10-22
 - All coordinators share one working folder, so Paseo lists them in one project (**coordinators**); each keeps its own context file. Coordinators started earlier keep working where they are.
 - **Rename** a coordinator from its card (or Edit): renames it in Workbench and its agent in Paseo's sidebar.

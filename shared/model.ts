@@ -1,3 +1,5 @@
+import { COORDINATOR_LABEL, COORDINATOR_VALUE, PARENT_AGENT_ID_LABEL, SECOND_OPINION_FOR_LABEL, SPECIALIST_LABEL } from "./settings";
+
 /** SDK-independent projection, so the planning/visibility code can be unit-tested offline. */
 export type WorkbenchWorkspace = {
   serverId: string;
@@ -291,4 +293,21 @@ export function toggleAssignedWorkspace(a: Assignment, p: AssignableProject, wor
   const projectIds = a.projectIds.filter((id) => id !== p.projectId);
   const others = a.workspaceIds.filter((id) => !all.includes(id));
   return next.length === all.length ? { projectIds: [...projectIds, p.projectId], workspaceIds: others } : { projectIds, workspaceIds: [...others, ...next] };
+}
+
+const BUSY = new Set(["running", "initializing"]);
+
+/** An agent Workbench may offer to archive: not working, not waiting on you, not a coordinator. */
+export function archivable(agent: WorkbenchAgent): boolean {
+  return !agent.archived && !BUSY.has(agent.status) && agent.pendingPermissionCount === 0 && agent.labels[COORDINATOR_LABEL] !== COORDINATOR_VALUE;
+}
+
+/** The agent plus its review team (second opinion / committee members), which go with it. */
+export function withTeam(agents: readonly WorkbenchAgent[], serverId: string, agentId: string): string[] {
+  return [agentId, ...agents.filter((a) => a.serverId === serverId && !a.archived && a.labels[SECOND_OPINION_FOR_LABEL] === agentId).map((a) => a.agentId)];
+}
+
+/** Finished Workbench specialists (top-level, done, not waiting on you), for "Archive finished specialists". */
+export function finishedSpecialists(agents: readonly WorkbenchAgent[]): WorkbenchAgent[] {
+  return agents.filter((a) => a.labels[SPECIALIST_LABEL] && !a.labels[PARENT_AGENT_ID_LABEL] && archivable(a));
 }

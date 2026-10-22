@@ -1,19 +1,21 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Pressable, Text, View } from "react-native";
-import { ago, hierarchyRows, type AttentionItem, type NativeSubagent, type WorkbenchAgent } from "../shared/model";
+import { ago, archivable, hierarchyRows, type AttentionItem, type NativeSubagent, type WorkbenchAgent } from "../shared/model";
 import { Button, Notice, Status } from "./ui";
 
 /**
  * Who started what: managed agents nested by Paseo's parent label, provider-native children (live-only) under
  * their parent, and on each node what it is waiting on from you, if anything.
  */
-export function AgentTree({ theme, agents, native, attention, openAgent, onSummarize, empty, releasable, onRelease }: {
+export function AgentTree({ theme, agents, native, attention, openAgent, onSummarize, empty, releasable, onRelease, onArchive }: {
   theme: PluginTheme; agents: readonly WorkbenchAgent[]; native: readonly NativeSubagent[];
   attention: ReadonlyMap<string, AttentionItem>; openAgent: (agentId: string, serverId: string) => void;
   /** Launch the Session summarizer on a managed agent; omitted where that is not possible. */
   onSummarize?: (agentId: string, serverId: string) => void; empty: string;
   /** Agents that can be released from their coordinator (made top-level again). */
   releasable?: ReadonlySet<string>; onRelease?: (agentId: string) => void;
+  /** Archive an agent that is done (see shared/model.ts `archivable`); omitted where not offered. */
+  onArchive?: (agentId: string, serverId: string) => void;
 }) {
   const now = Date.now();
   const color = { permission: theme.colors.statusWarning, error: theme.colors.statusDanger, finished: theme.colors.foregroundMuted, attention: theme.colors.statusWarning };
@@ -36,6 +38,7 @@ export function AgentTree({ theme, agents, native, attention, openAgent, onSumma
           </View>
           {onSummarize && row.kind === "managed" ? <Button theme={theme} subtle label="Summarize" onPress={() => onSummarize(row.agentId, row.serverId)} /> : null}
           {onRelease && row.kind === "managed" && releasable?.has(row.agentId) ? <Button theme={theme} subtle label="Release" onPress={() => onRelease(row.agentId)} /> : null}
+          {onArchive && row.kind === "managed" && (() => { const a = agents.find((x) => x.agentId === row.agentId && x.serverId === row.serverId); return a && archivable(a); })() ? <Button theme={theme} subtle label="Archive" onPress={() => onArchive(row.agentId, row.serverId)} /> : null}
         </View>
       </Pressable>;
     })}

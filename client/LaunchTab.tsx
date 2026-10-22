@@ -173,6 +173,6 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
         {running.length ? note(`Running: ${running.map((c) => c.name).join(", ")}. Manage them in Command.`) : null}
       </> : null}
     </Section>
-    <Schedules theme={theme} version={schedulesVersion} />
+    <Schedules theme={theme} version={schedulesVersion} openAgent={(id) => openAgent(id, coordinators.host.id)} />
   </View>;
 }

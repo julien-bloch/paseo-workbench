@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupProjects, hierarchyRows, projectKey, isAttention, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
+import { groupProjects, hierarchyRows, projectKey, isAttention, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, withTeam, finishedSpecialists, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
 import { planLaunchMode, escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from '../.unit-dist/permissions.js';
 import { transcriptRows, transcriptText } from '../.unit-dist/transcript.js';
 import { parseQuestions, buildAnswers, toggleChoice } from '../.unit-dist/questions.js';
@@ -323,4 +323,17 @@ test('settings v9: an unchanged "General coordinator" becomes "Coordinator"; a c
   assert.equal(migrateToV9({helpers:[{id:'coordinator',name:'General coordinator'}]}).helpers[0].name,'Coordinator');
   assert.equal(migrateToV9({helpers:[{id:'coordinator',name:'Lead'}]}).helpers[0].name,'Lead');
   assert.equal(preferences.migrate({helpers:[{id:'coordinator',name:'General coordinator'}]},8).helpers[0].name,'Coordinator');
+});
+
+test('archive: only done, non-coordinator agents; a specialist goes with its review team; bulk takes finished top-level specialists',()=>{
+  const ag=(id,o={})=>({serverId:'s',agentId:id,workspaceId:'w',title:id,status:'idle',model:'',provider:'',updatedAt:'',labels:{},requiresAttention:false,pendingPermissionCount:0,archived:false,...o});
+  const rev=ag('rev',{labels:{'workbench.helper':'reviewer'}});
+  const member=ag('mem',{labels:{'workbench.helper':'reviewer','workbench.second-opinion-for':'rev','paseo.parent-agent-id':'rev'}});
+  const busy=ag('busy',{status:'running',labels:{'workbench.helper':'debugger'}});
+  const asking=ag('ask',{pendingPermissionCount:1,labels:{'workbench.helper':'debugger'}});
+  const coord=ag('co',{labels:{'workbench.role':'coordinator'}});
+  const mine=ag('mine');
+  assert.deepEqual([rev,member,busy,asking,coord,mine].map(archivable),[true,true,false,false,false,true]);
+  assert.deepEqual(withTeam([rev,member,mine],'s','rev'),['rev','mem']);
+  assert.deepEqual(finishedSpecialists([rev,member,busy,asking,coord,mine]).map(a=>a.agentId),['rev'],'not team members, busy, asking, coordinators or your own agents');
 });

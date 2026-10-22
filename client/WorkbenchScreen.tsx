@@ -3,7 +3,7 @@ import { getPaseoClient, useSettings } from "@getpaseo/plugin/client";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { preferences, isCoordinatorHome, type Preferences } from "../shared/settings";
-import { attentionGroups, attentionHeadline, groupProjects } from "../shared/model";
+import { attentionGroups, attentionHeadline, finishedSpecialists, groupProjects, withTeam } from "../shared/model";
 import { useCoordinators } from "./Coordinators";
 import { LaunchTab } from "./LaunchTab";
 import { AttentionList } from "./AttentionList";
@@ -34,6 +34,7 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
   const [overviewFilter,setOverviewFilter]=useState("");
   const [commandSelection,setCommandSelection]=useState("");
   const [importText,setImportText]=useState("");
+  const [confirmBulk,setConfirmBulk]=useState(false);
   const [message,setMessage]=useState<{kind:"info"|"error"|"success";text:string}|null>(null);
   // Coordinator homes are Workbench plumbing, not user projects.
   const projects=useMemo(()=>groupProjects(directory.workspaces.filter(w=>!isCoordinatorHome(w.directory)),directory.agents),[directory.workspaces,directory.agents]);
@@ -74,6 +75,16 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
   }
   const summarizeAction=(id:string,server:string)=>void summarize(id,server);
 
+  /** Archive agents (each with its review team). They stay in Paseo's history; nothing is deleted. */
+  async function archive(targets:readonly {agentId:string;serverId:string}[]){
+    const ids=targets.flatMap(t=>withTeam(directory.agents,t.serverId,t.agentId).map(agentId=>({agentId,serverId:t.serverId})));
+    const failed:string[]=[];
+    for(const t of ids){try{await getPaseoClient(t.serverId).agents.ref(t.agentId).archive()}catch(e){failed.push(e instanceof Error?e.message:String(e))}}
+    setMessage(failed.length?{kind:"error",text:`Archived ${ids.length-failed.length} of ${ids.length}: ${failed[0]}`}:{kind:"success",text:`Archived ${ids.length} agent${ids.length===1?"":"s"}. They stay in Paseo's history.`});
+    await directory.refresh();
+  }
+  const archiveOne=(agentId:string,serverId:string)=>void archive([{agentId,serverId}]);
+
   return <ScrollView style={{flex:1,backgroundColor:theme.colors.surface0}} contentContainerStyle={{padding:layout.compact?14:26,gap:20,paddingBottom:54}}>
     <View style={{gap:7}}>
       <Text style={{fontSize:layout.compact?25:30,fontWeight:"700",color:theme.colors.foreground}}>Workbench</Text>
@@ -93,9 +104,9 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
       onCoordinatorLaunched={id=>{setCommandSelection(id);setTab("command")}}/>:null}
     {tab==="command"?<Section theme={theme} title="Needs attention">
       {unobserved||!attention.length?<Notice theme={theme} kind={headline.clear?"info":"error"} text={headline.text}/>:null}
-      <AttentionList theme={theme} groups={attentionByProject} hostSuffix={id=>id&&directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
+      <AttentionList theme={theme} groups={attentionByProject} hostSuffix={id=>id&&directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent} onArchive={archiveOne}/>
     </Section>:null}
-    {tab==="command"?<Command host={host} theme={theme} layout={layout} values={values} directory={directory} projects={projects} openAgent={openAgent} onSummarize={summarizeAction}
+    {tab==="command"?<Command host={host} theme={theme} layout={layout} values={values} directory={directory} projects={projects} openAgent={openAgent} onSummarize={summarizeAction} onArchive={archiveOne}
       coordinators={coordinators} selected={commandSelection} onSelect={setCommandSelection}/>:null}
     {tab==="overview"?<>
       <Section theme={theme} title="All agents" subtitle="Who started what. Tap any agent to open it.">
@@ -108,7 +119,13 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
           const agents=project?project.agents:directory.agents;
           const ids=new Set(agents.map(a=>`${a.serverId}:${a.agentId}`));
           const native=directory.native.filter(s=>ids.has(`${s.serverId}:${s.parentAgentId}`));
-          return <AgentTree theme={theme} agents={agents} native={native} attention={attentionIndex} openAgent={openAgent} onSummarize={summarizeAction} empty={unobserved?"No agents on reachable hosts with this filter.":"No agents found with this filter."}/>;
+          const finished=finishedSpecialists(agents);
+          return <>
+          {finished.length?<Wrap>
+            <Button theme={theme} subtle label={confirmBulk?`Confirm: archive ${finished.length} finished specialist${finished.length===1?"":"s"}`:`Archive finished specialists (${finished.length})`} onPress={()=>{if(!confirmBulk){setConfirmBulk(true);return;}setConfirmBulk(false);void archive(finished)}}/>
+            {confirmBulk?<Button theme={theme} subtle label="Cancel" onPress={()=>setConfirmBulk(false)}/>:null}
+          </Wrap>:null}
+          <AgentTree theme={theme} agents={agents} native={native} attention={attentionIndex} openAgent={openAgent} onSummarize={summarizeAction} onArchive={archiveOne} empty={unobserved?"No agents on reachable hosts with this filter.":"No agents found with this filter."}/></>;
         })()}
       </Section>
     </>:null}

@@ -5,13 +5,17 @@ import { Text, View } from "react-native";
 import { listSchedules, scheduleAction, type ScheduleRow } from "../shared/rpc";
 import { Button, Notice, Section, Wrap } from "./ui";
 
-/** The schedules and check-ins Workbench created on the selected host. `version` changes when a new one was added. */
-export function Schedules({ theme, version }: { theme: PluginTheme; version: number }) {
+/**
+ * The schedules and check-ins Workbench created on the selected host, each workspace schedule with its latest runs.
+ * `version` changes when a new one was added.
+ */
+export function Schedules({ theme, version, openAgent }: { theme: PluginTheme; version: number; openAgent?: (agentId: string) => void }) {
   const list = useRpc(listSchedules);
   const act = useRpc(scheduleAction);
   const [rows, setRows] = useState<ScheduleRow[] | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  const [expanded, setExpanded] = useState("");
   async function load() {
     try { setRows((await list({})).schedules); setError(""); }
     catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -31,6 +35,23 @@ export function Schedules({ theme, version }: { theme: PluginTheme; version: num
       <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>
         {r.kind === "check-in" ? "Check-in · " : "New agent each run · "}{r.cadence} · {r.status}{r.nextRunAt ? ` · next ${new Date(r.nextRunAt).toLocaleString()}` : ""}
       </Text>
+      {r.runs.length ? <View style={{ gap: 6, paddingLeft: 10, borderLeftWidth: 2, borderColor: theme.colors.border }}>
+        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>Latest runs (Paseo archives each run's agent when it ends; its result stays here)</Text>
+        {r.runs.map((run) => {
+          const result = run.error ? `Error: ${run.error}` : run.output ?? "";
+          const open = expanded === run.id;
+          return <View key={run.id} style={{ gap: 3 }}>
+            <Text style={{ color: run.error || run.status === "failed" ? theme.colors.statusDanger : theme.colors.foreground, fontSize: 12 }}>
+              {run.startedAt ? new Date(run.startedAt).toLocaleString() : "Not started"} · {run.status}
+            </Text>
+            {result ? <Text selectable numberOfLines={open ? undefined : 3} style={{ color: theme.colors.foreground, fontSize: 11, backgroundColor: theme.colors.surface2, padding: 6, borderRadius: 6 }}>{result}</Text> : null}
+            <Wrap>
+              {result.length > 160 ? <Button theme={theme} subtle label={open ? "Show less" : "Show full result"} onPress={() => setExpanded(open ? "" : run.id)} /> : null}
+              {run.agentId && openAgent ? <Button theme={theme} subtle label="Open" onPress={() => openAgent(run.agentId!)} /> : null}
+            </Wrap>
+          </View>;
+        })}
+      </View> : null}
       <Wrap>
         {r.kind === "workspace" ? <Button theme={theme} subtle disabled={busy === r.id} label={r.status === "paused" ? "Resume" : "Pause"} onPress={() => void run(r.id, r.status === "paused" ? "resume" : "pause")} /> : null}
         <Button theme={theme} subtle disabled={busy === r.id} label="Delete" onPress={() => void run(r.id, "delete")} />

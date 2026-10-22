@@ -1,10 +1,13 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Pressable, Text, View } from "react-native";
 import { ago, type AttentionGroup } from "../shared/model";
+import { Button } from "./ui";
 
 /** What needs you, grouped by project, most urgent first. Tap an item to open that agent. */
-export function AttentionList({ theme, groups, hostSuffix, openAgent }: {
+export function AttentionList({ theme, groups, hostSuffix, openAgent, onArchive }: {
   theme: PluginTheme; groups: readonly AttentionGroup[]; hostSuffix: (serverId: string | null) => string; openAgent: (agentId: string, serverId: string) => void;
+  /** Archive a finished or failed agent (with its review team); omitted where not offered. */
+  onArchive?: (agentId: string, serverId: string) => void;
 }) {
   const now = Date.now();
   const color = { permission: theme.colors.statusWarning, error: theme.colors.statusDanger, finished: theme.colors.foregroundMuted, attention: theme.colors.statusWarning };
@@ -21,6 +24,7 @@ export function AttentionList({ theme, groups, hostSuffix, openAgent }: {
           <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{item.title}</Text>
           <Text style={{ color: color[item.kind], fontSize: 12, fontWeight: "600" }}>{item.headline}<Text style={{ color: theme.colors.foregroundMuted, fontWeight: "400" }}>{[item.via ? `started by ${item.via}` : null, item.workspaceName, ago(item.since, now)].filter(Boolean).map((x) => ` · ${x}`).join("")}</Text></Text>
           {item.details.map((line, i) => <Text key={i} selectable numberOfLines={3} style={{ color: theme.colors.foreground, fontSize: 11, backgroundColor: theme.colors.surface2, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>{line}</Text>)}
+          {onArchive && (item.kind === "finished" || item.kind === "error") ? <Button theme={theme} subtle label="Archive" onPress={() => onArchive(item.agentId, item.serverId)} /> : null}
         </Pressable>)}
       </View>;
     })}
