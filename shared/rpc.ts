@@ -6,7 +6,8 @@ const coordinatorId = z.string().regex(/^[a-z][a-z0-9-]{1,39}$/);
 export const ensureCoordinatorHome = defineRpc({
   name: "workbench.coordinator_home",
   input: z.object({ coordinatorId }),
-  output: z.object({ path: z.string() }),
+  // path: the coordinators' shared working folder; contextFile: this coordinator's CONTEXT.md.
+  output: z.object({ path: z.string(), contextFile: z.string() }),
 });
 
 export const writeCoordinatorContext = defineRpc({
@@ -79,4 +80,11 @@ export const folderSpecialists = defineRpc({
   name: "workbench.folder_specialists",
   input: z.object({}),
   output: z.object({ folder: z.string(), files: z.array(z.object({ file: z.string(), text: z.string() })), error: z.string().optional() }),
+});
+
+/** Rename a registered Coordinator's agent in Paseo (its sidebar title); the Workbench entry is saved by the client. */
+export const renameCoordinator = defineRpc({
+  name: "workbench.rename_coordinator",
+  input: z.object({ agentId, name: z.string().trim().min(1).max(80) }),
+  output: z.object({ ok: z.boolean() }),
 });

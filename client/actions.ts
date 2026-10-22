@@ -152,8 +152,8 @@ export async function createSpecialist(input:{
   };
 }
 
-export function coordinatorFirstPrompt(name:string):string {
-  return `You are the Workbench Coordinator "${name}". Read CONTEXT.md in this directory, summarize the workspaces and agents you coordinate, and ask me what to focus on first.`;
+export function coordinatorFirstPrompt(name:string,contextFile:string):string {
+  return `You are the Workbench Coordinator "${name}". Your context file is ${contextFile}. Read it, summarize the workspaces and agents you coordinate, and ask me what to focus on first.`;
 }
 
 /** Coordinator entry an agent belongs to; agents from before multiple Coordinators belong to "default". */
@@ -186,7 +186,7 @@ export type CoordinatorResult = {kind:"created";agentId:string;archived:boolean}
  */
 const PR_MANAGER_DENIED = ["Bash(gh pr merge:*)", "Bash(git push:*)"];
 
-export async function createCoordinator(input:{paseo:PaseoApi;cwd:string;model:string;coordinatorId:string;name:string;instructions:string;generation:number;kind?:"general"|"pr-manager"}):Promise<CoordinatorResult> {
+export async function createCoordinator(input:{paseo:PaseoApi;cwd:string;contextFile:string;model:string;coordinatorId:string;name:string;instructions:string;generation:number;kind?:"general"|"pr-manager"}):Promise<CoordinatorResult> {
   const {paseo,cwd,model,coordinatorId,name,instructions,generation}=input;
   const denied=input.kind==="pr-manager"&&providerOf(model)==="claude"?{options:{disallowedTools:PR_MANAGER_DENIED}}:{};
   try{
@@ -196,7 +196,7 @@ export async function createCoordinator(input:{paseo:PaseoApi;cwd:string;model:s
       cwd,title:name,
       config:{provider:model,systemPrompt:instructions,...denied},
       labels:{[COORDINATOR_LABEL]:COORDINATOR_VALUE,[COORDINATOR_ID_LABEL]:coordinatorId},
-      prompt:coordinatorFirstPrompt(name),
+      prompt:coordinatorFirstPrompt(name,input.contextFile),
     });
     const snapshot=(await agent.refresh())?.agent;
     return {kind:"created",agentId:agent.id,archived:Boolean(snapshot?.archivedAt)};

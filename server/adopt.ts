@@ -3,6 +3,13 @@ import { COORDINATOR_LABEL, PARENT_AGENT_ID_LABEL } from "../shared/settings";
 import { cli } from "./cli";
 import { readState } from "./state";
 
+/** Rename a registered Coordinator's agent (the SDK cannot change an agent's title; the CLI can). */
+export async function renameCoordinatorAgent(agentId: string, name: string) {
+  if (!(await readState()).coordinators[agentId]) throw new Error("Only a Workbench coordinator can be renamed here.");
+  await cli(["agent", "update", `--name=${name}`, "--", agentId]);
+  return { ok: true };
+}
+
 /**
  * Adopt: set Paseo's parent label on existing top-level agents so they nest under a Coordinator Workbench registered.
  * Release: detach agents whose parent is that Coordinator. Agents with another parent, and coordinators, are skipped.

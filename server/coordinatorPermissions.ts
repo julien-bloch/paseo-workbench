@@ -3,7 +3,7 @@ import type { PaseoApi } from "@getpaseo/client";
 import type { PluginServerContext, PluginSettings } from "@getpaseo/plugin/server";
 import { COORDINATOR_AUTO_APPROVED_TOOLS, COORDINATOR_ID_LABEL, COORDINATOR_LABEL, COORDINATOR_VALUE, PARENT_AGENT_ID_LABEL, type preferences } from "../shared/settings";
 import { escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from "../shared/permissions";
-import { prepareHome } from "./context";
+import { legacyHomeFor, prepareHome } from "./context";
 import { readState, updateState } from "./state";
 
 const PASEO_TOOL = /^mcp__paseo__([a-z_]+)$/;
@@ -48,8 +48,10 @@ export async function registerCoordinatorAgent(paseo: PaseoApi, settings: Settin
   if (!agent || agent.archivedAt) return { registered: false, reason: "agent not found" };
   if (agent.labels[COORDINATOR_LABEL] !== COORDINATOR_VALUE || (agent.labels[COORDINATOR_ID_LABEL] ?? "default") !== coordinatorId) return { registered: false, reason: "labels do not match" };
   if (agent.labels[PARENT_AGENT_ID_LABEL]) return { registered: false, reason: "created by another agent" };
-  const home = await realpath((await prepareHome(coordinatorId)).path);
-  if (await realpath(agent.cwd).catch(() => "") !== home) return { registered: false, reason: "not running in its Coordinator home" };
+  // The shared coordinators folder, or the coordinator's own folder from before alpha.15.
+  const homes = await Promise.all([(await prepareHome(coordinatorId)).path, legacyHomeFor(coordinatorId)].map((d) => realpath(d).catch(() => "")));
+  const cwd = await realpath(agent.cwd).catch(() => "");
+  if (!cwd || !homes.includes(cwd)) return { registered: false, reason: "not running in a Coordinator home" };
   await updateState((state) => { state.coordinators[agentId] = coordinatorId; });
   const kind = await kindOf(settings, coordinatorId);
   for (const request of agent.pendingPermissions) await approve(paseo, agentId, request, kind);

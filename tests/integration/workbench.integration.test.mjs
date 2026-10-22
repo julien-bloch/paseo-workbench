@@ -110,8 +110,10 @@ test('settings: documents saved before requireReadOnly/coordinators existed stil
 test('coordinator RPCs: fixed home inside the daemon home, atomic 0600 CONTEXT.md, oversize rejected', async () => {
   const home = await rpc('workbench.coordinator_home', { coordinatorId: 'default' });
   console.log(`# coordinator home: ${home.path}`);
-  assert.match(home.path, /\/plugin-data\/workbench\/coordinator$/);
+  assert.match(home.path, /\/plugin-data\/workbench\/coordinators$/);
+  assert.match(home.contextFile, /\/plugin-data\/workbench\/coordinators\/default\/CONTEXT\.md$/);
   const written = await rpc('workbench.coordinator_context', { coordinatorId: 'default', markdown: '# Snapshot\nhello' });
+  assert.equal(written.path, home.contextFile);
   assert.equal(readFileSync(written.path, 'utf8'), '# Snapshot\nhello');
   assert.equal(statSync(written.path).mode & 0o777, 0o600);
   await assert.rejects(rpc('workbench.coordinator_context', { coordinatorId: 'default', markdown: 'x'.repeat(120_001) }));
@@ -355,11 +357,11 @@ test('managed parent: specialist launched from an agent carries paseo.parent-age
 });
 
 test('Coordinator: concurrent creates return one agent; changed settings conflict; archived -> next generation', { timeout: TURN_MS + 60_000 }, async () => {
-  const { path: cwd } = await rpc('workbench.coordinator_home', { coordinatorId: 'default' });
+  const { path: cwd, contextFile } = await rpc('workbench.coordinator_home', { coordinatorId: 'default' });
   // Start from no live Coordinator on this disposable daemon (earlier manual UI runs may have created one).
   for (const { agent } of (await paseo.agents.list({ filter: { labels: { 'workbench.role': 'coordinator' } }, page: { limit: 50 } })).entries) await paseo.agents.ref(agent.id).archive();
   const generation = Number(process.env.WORKBENCH_TEST_COORDINATOR_GENERATION || Date.now());
-  const base = { paseo, cwd, model: MODEL, coordinatorId: 'default', name: 'Test coordinator', instructions: 'You are a test coordinator. Reply with one short sentence.', generation };
+  const base = { paseo, cwd, contextFile, model: MODEL, coordinatorId: 'default', name: 'Test coordinator', instructions: 'You are a test coordinator. Reply with one short sentence.', generation };
   const [a, b] = await Promise.all([createCoordinator(base), createCoordinator(base)]);
   created.push(a.agentId);
   assert.equal(a.agentId, b.agentId);
@@ -379,12 +381,12 @@ test('Coordinator: concurrent creates return one agent; changed settings conflic
   assert.equal(next.archived, false);
 });
 
-test('multiple coordinators: separate homes and agents per coordinator id', { timeout: TURN_MS + 60_000 }, async () => {
+test('multiple coordinators: one shared working folder (one Paseo project), own context file and agent each', { timeout: TURN_MS + 60_000 }, async () => {
   const [home1, home2] = await Promise.all([rpc('workbench.coordinator_home', { coordinatorId: 'default' }), rpc('workbench.coordinator_home', { coordinatorId: 'c-test' })]);
-  assert.match(home1.path, /\/plugin-data\/workbench\/coordinator$/);
-  assert.match(home2.path, /\/plugin-data\/workbench\/coordinators\/c-test$/);
+  assert.equal(home1.path, home2.path);
+  assert.notEqual(home1.contextFile, home2.contextFile);
   const generation = Date.now();
-  const make = (coordinatorId, cwd) => createCoordinator({ paseo, cwd, model: MODEL, coordinatorId, name: `Test ${coordinatorId}`, instructions: 'You are a test coordinator. Reply with one short sentence.', generation });
+  const make = (coordinatorId, cwd) => createCoordinator({ paseo, cwd, contextFile: (coordinatorId === 'default' ? home1 : home2).contextFile, model: MODEL, coordinatorId, name: `Test ${coordinatorId}`, instructions: 'You are a test coordinator. Reply with one short sentence.', generation });
   const [a, b] = await Promise.all([make('default', home1.path), make('c-test', home2.path)]);
   created.push(a.agentId, b.agentId);
   assert.notEqual(a.agentId, b.agentId);
@@ -392,15 +394,19 @@ test('multiple coordinators: separate homes and agents per coordinator id', { ti
   const agentB = (await paseo.agents.ref(b.agentId).refresh()).agent;
   assert.equal(agentB.labels['workbench.coordinator-id'], 'c-test');
   assert.equal(agentB.cwd, home2.path);
+  const agentA = (await paseo.agents.ref(a.agentId).refresh()).agent;
+  const ws = (await paseo.workspaces.list({ page: { limit: 200 } })).entries;
+  const projectOf = (agent) => ws.find((w) => w.id === agent.workspaceId)?.projectId;
+  assert.ok(projectOf(agentA) && projectOf(agentA) === projectOf(agentB), 'both coordinators are in the same Paseo project');
   for (const id of [a.agentId, b.agentId]) await paseo.agents.ref(id).waitForFinish(TURN_MS).catch(() => {});
 });
 
 test('coordinator orchestration: a coordinator assigned to a workspace starts an agent there with Paseo tools', { timeout: 3 * TURN_MS }, async (t) => {
   if (!(await agentToolsEnabled(paseo))) return t.skip('agent tools are off on this daemon (mcp.injectIntoAgents); Workbench reports this in the UI');
-  const { path: cwd } = await rpc('workbench.coordinator_home', { coordinatorId: 'c-orchestra' });
+  const { path: cwd, contextFile } = await rpc('workbench.coordinator_home', { coordinatorId: 'c-orchestra' });
   await rpc('workbench.coordinator_context', { coordinatorId: 'c-orchestra', markdown: `# Workbench project context\n\n## Your assignment: Orchestra\nYou coordinate these workspaces only (IDs below).\n\n## scratch\nWorkspaces:\n- main: workspace ${workspace.workspaceId}, ${repo}\nAgents: none` });
   const settings = settingsDefaults();
-  const result = await createCoordinator({ paseo, cwd, model: MODEL, coordinatorId: 'c-orchestra', name: 'Orchestra', instructions: settings.coordinators[0].instructions, generation: Date.now() });
+  const result = await createCoordinator({ paseo, cwd, contextFile, model: MODEL, coordinatorId: 'c-orchestra', name: 'Orchestra', instructions: settings.coordinators[0].instructions, generation: Date.now() });
   created.push(result.agentId);
   assert.deepEqual(await rpc('workbench.register_coordinator', { agentId: result.agentId, coordinatorId: 'c-orchestra' }), { registered: true });
   const coordinator = paseo.agents.ref(result.agentId);
@@ -459,9 +465,9 @@ test('PR manager: reads PRs with gh by itself, is refused a merge, opens a PR wo
   const entry = { ...DEFAULT_COORDINATOR, id: 'c-prm', name: 'PR manager test', kind: 'pr-manager', instructions: PR_MANAGER_INSTRUCTIONS, prScope: ['all'] };
   const saved = await rpc('settings.preferences.write', { revision: read.revision, values: { ...read.values, coordinators: [...read.values.coordinators.filter((c) => c.id !== 'c-prm'), entry] } });
   assert.equal(saved.status, 'saved');
-  const { path: cwd } = await rpc('workbench.coordinator_home', { coordinatorId: 'c-prm' });
+  const { path: cwd, contextFile } = await rpc('workbench.coordinator_home', { coordinatorId: 'c-prm' });
   await rpc('workbench.coordinator_context', { coordinatorId: 'c-prm', markdown: `# Workbench project context\n\n## Your assignment: PR manager test\nPull requests to watch: all open\n\n## Hello-World\nWorkspaces:\n- main: ${source}\nRepository: octocat/Hello-World` });
-  const result = await createCoordinator({ paseo, cwd, model: MODEL, coordinatorId: 'c-prm', name: entry.name, instructions: entry.instructions, generation: Date.now(), kind: 'pr-manager' });
+  const result = await createCoordinator({ paseo, cwd, contextFile, model: MODEL, coordinatorId: 'c-prm', name: entry.name, instructions: entry.instructions, generation: Date.now(), kind: 'pr-manager' });
   created.push(result.agentId);
   assert.deepEqual(await rpc('workbench.register_coordinator', { agentId: result.agentId, coordinatorId: 'c-prm' }), { registered: true });
   const pm = paseo.agents.ref(result.agentId);
@@ -572,14 +578,18 @@ test('schedules and take-over: workspace schedules, coordinator check-ins, adopt
   const plain = await paseo.workspaces.ref(workspace.workspaceId).agents.create({ config: { provider: MODEL, modeId: 'plan' }, title: 'Not a coordinator' });
   created.push(plain.id);
   await assert.rejects(rpc('workbench.schedule_create', { name: 'x', prompt: 'p', cron, timezone: 'UTC', target: { kind: 'check-in', agentId: plain.id } }), /Only a running Workbench coordinator/);
-  const { path: cwd } = await rpc('workbench.coordinator_home', { coordinatorId: 'c-sched' });
-  const coordinator = await createCoordinator({ paseo, cwd, model: MODEL, coordinatorId: 'c-sched', name: 'Sched', instructions: settingsDefaults().coordinators[0].instructions, generation: Date.now() });
+  const { path: cwd, contextFile } = await rpc('workbench.coordinator_home', { coordinatorId: 'c-sched' });
+  const coordinator = await createCoordinator({ paseo, cwd, contextFile, model: MODEL, coordinatorId: 'c-sched', name: 'Sched', instructions: settingsDefaults().coordinators[0].instructions, generation: Date.now() });
   created.push(coordinator.agentId);
   assert.deepEqual(await rpc('workbench.register_coordinator', { agentId: coordinator.agentId, coordinatorId: 'c-sched' }), { registered: true });
   const checkIn = await rpc('workbench.schedule_create', { name: 'Sched check-in', prompt: '[Workbench check-in] Reply OK.', cron, timezone: 'UTC', target: { kind: 'check-in', agentId: coordinator.agentId } });
   assert.equal(checkIn.kind, 'check-in');
   assert.ok((await rpc('workbench.schedules', {})).schedules.some((s) => s.id === checkIn.id && s.agentId === coordinator.agentId));
   await assert.rejects(rpc('workbench.schedule_action', { id: checkIn.id, action: 'pause' }), /not paused/);
+  // Rename: only a registered coordinator's agent, and Paseo shows the new title.
+  await assert.rejects(rpc('workbench.rename_coordinator', { agentId: plain.id, name: 'Nope' }), /Only a Workbench coordinator/);
+  assert.deepEqual(await rpc('workbench.rename_coordinator', { agentId: coordinator.agentId, name: 'Sched renamed' }), { ok: true });
+  assert.equal((await paseo.agents.ref(coordinator.agentId).refresh()).agent.title, 'Sched renamed');
   await rpc('workbench.schedule_action', { id: checkIn.id, action: 'delete' });
   assert.ok(!(await rpc('workbench.schedules', {})).schedules.some((s) => s.id === checkIn.id));
 

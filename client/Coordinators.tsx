@@ -3,7 +3,7 @@ import { getPaseoClient, useRpc } from "@getpaseo/plugin/client";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { DEFAULT_COORDINATOR, PR_MANAGER_INSTRUCTIONS, isCoordinatorHome, sameValue, type Coordinator, type Preferences } from "../shared/settings";
-import { ensureCoordinatorHome, registerCoordinator, writeCoordinatorContext } from "../shared/rpc";
+import { ensureCoordinatorHome, registerCoordinator, renameCoordinator, writeCoordinatorContext } from "../shared/rpc";
 import { coordinatorBrief } from "../shared/prompts";
 import { groupProjects, projectState, toggleAssignedProject, toggleAssignedWorkspace, type Assignment, type ProjectGroup } from "../shared/model";
 import { agentToolsEnabled, coordinatorIdOf, createCoordinator, findCoordinator, resolveModel } from "./actions";
@@ -28,6 +28,7 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
   const ensureHome = useRpc(ensureCoordinatorHome);
   const writeContext = useRpc(writeCoordinatorContext);
   const register = useRpc(registerCoordinator);
+  const renameAgent = useRpc(renameCoordinator);
   // Its autonomy (auto-approved Paseo tools) applies only once the plugin server has verified and recorded it.
   async function registerAgent(c: Coordinator, agentId: string): Promise<string> {
     const result = await register({ agentId, coordinatorId: c.id }).catch((e: unknown) => ({ registered: false, reason: e instanceof Error ? e.message : String(e) }));
@@ -81,7 +82,7 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
       const home = await ensureHome({ coordinatorId: c.id });
       await writeContext({ coordinatorId: c.id, markdown: briefFor(c) });
       const paseo = getPaseoClient(host.id);
-      const input = { paseo, cwd: home.path, model, coordinatorId: c.id, name: c.name, instructions: c.instructions, kind: c.kind };
+      const input = { paseo, cwd: home.path, contextFile: home.contextFile, model, coordinatorId: c.id, name: c.name, instructions: c.instructions, kind: c.kind };
       let result = newGeneration ? null : await createCoordinator({ ...input, generation: c.generation });
       if (newGeneration || result?.kind === "conflict") {
         // Same key, different settings: a live agent exists, an archived one used older settings, or another device is creating one now.
@@ -114,11 +115,28 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
     try {
       const result = await writeContext({ coordinatorId: c.id, markdown: briefFor(c) });
       // Steer, not interrupt, a Coordinator that is mid-turn.
-      await getPaseoClient(host.id).agents.ref(agentId).send("I refreshed your Workbench context snapshot in CONTEXT.md. Reread it before continuing.", { activeTurnBehavior: "steer" });
+      await getPaseoClient(host.id).agents.ref(agentId).send(`I refreshed your Workbench context file ${result.path}. Reread it before continuing.`, { activeTurnBehavior: "steer" });
       const note = await registerAgent(c, agentId);
       setMessage({ kind: note ? "error" : "success", text: `Updated ${result.path} and notified ${c.name} once.${note}` });
     } catch (e) { setMessage({ kind: "error", text: e instanceof Error ? e.message : String(e) }); }
     finally { setBusy(""); }
+  }
+
+  /** Rename a coordinator: its Workbench entry and, when it is running, its agent in Paseo's sidebar. */
+  async function rename(c: Coordinator, name: string): Promise<boolean> {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === c.name) return true;
+    if (!(await saveCoordinator({ ...c, name: trimmed }))) { setMessage({ kind: "error", text: "Settings changed on another device; rename again." }); return false; }
+    await renameInPaseo(c, trimmed);
+    return true;
+  }
+
+  /** The running agent's title in Paseo's sidebar, after the entry was saved with the new name. */
+  async function renameInPaseo(c: Coordinator, name: string) {
+    const agent = liveAgent(c);
+    try { if (agent) await renameAgent({ agentId: agent.agentId, name }); setMessage({ kind: "success", text: `Renamed to ${name}.` }); }
+    catch (e) { setMessage({ kind: "error", text: `Renamed in Workbench, but not in Paseo's sidebar: ${e instanceof Error ? e.message : String(e)}` }); }
+    void directory.refresh();
   }
 
   /** Save a new coordinator entry and start its agent. `agentId` is null when it was saved but did not start. */
@@ -132,7 +150,7 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
     return { saved: true, agentId: await start(entry) };
   }
 
-  return { busy, message, setMessage, offerNew, tools, hostReadable, hostProjects, scoped, assignmentPills, liveAgent, briefFor, saveCoordinator, start, refreshContext, launch, onSave, values, host, openAgent };
+  return { busy, message, setMessage, offerNew, tools, hostReadable, hostProjects, scoped, assignmentPills, liveAgent, briefFor, saveCoordinator, rename, renameInPaseo, start, refreshContext, launch, onSave, values, host, openAgent };
 }
 
 const pill = (theme: PluginTheme, label: string) => <Text key={label} style={{ color: theme.colors.foreground, fontSize: 12, borderWidth: 1, borderColor: theme.colors.accent, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3, maxWidth: "100%" }}>{label}</Text>;
@@ -141,9 +159,10 @@ export const prScopeLabels = (prScope: Coordinator["prScope"]) => prScope.includ
 /** One coordinator's status and controls: what it coordinates, start or refresh, project/PR selection, snapshot, edit. */
 export function CoordinatorCard({ theme, c, actions }: { theme: PluginTheme; c: Coordinator; actions: CoordinatorActions }) {
   const catalog = useCatalog();
-  const [open, setOpen] = useState<"" | "projects" | "prs" | "snapshot" | "edit">("");
+  const [open, setOpen] = useState<"" | "rename" | "projects" | "prs" | "snapshot" | "edit">("");
+  const [newName, setNewName] = useState(c.name);
   const toggle = (panel: typeof open) => setOpen(open === panel ? "" : panel);
-  const { values, onSave, saveCoordinator, setMessage, busy, offerNew, hostReadable, liveAgent, assignmentPills, briefFor, hostProjects, start, refreshContext } = actions;
+  const { values, onSave, saveCoordinator, rename, renameInPaseo, setMessage, busy, offerNew, hostReadable, liveAgent, assignmentPills, briefFor, hostProjects, start, refreshContext } = actions;
   const agent = liveAgent(c);
   return <View style={{ gap: 8 }}>
     <Wrap><Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>Coordinates:</Text>{assignmentPills(c).map((l) => pill(theme, l))}</Wrap>
@@ -153,11 +172,19 @@ export function CoordinatorCard({ theme, c, actions }: { theme: PluginTheme; c: 
       {agent ? <Button theme={theme} label={busy === c.id ? "Refreshing…" : "Refresh context"} subtle disabled={Boolean(busy)} onPress={() => void refreshContext(c, agent.agentId)} />
         : <Button theme={theme} label={busy === c.id ? "Starting…" : "Start"} disabled={Boolean(busy) || !hostReadable || !resolveModel(values.defaultModel, c.model)} onPress={() => void start(c)} />}
       {!agent && offerNew === c.id ? <Button theme={theme} label="Start a new one" subtle disabled={Boolean(busy)} onPress={() => void start(c, true)} /> : null}
+      <Button theme={theme} label="Rename" subtle onPress={() => { setNewName(c.name); toggle("rename"); }} />
       <Button theme={theme} label="Select coordination projects" subtle onPress={() => toggle("projects")} />
       {c.kind === "pr-manager" ? <Button theme={theme} label="Select PRs to watch" subtle onPress={() => toggle("prs")} /> : null}
       <Button theme={theme} label={open === "snapshot" ? "Hide snapshot" : "Preview snapshot"} subtle onPress={() => toggle("snapshot")} />
       <Button theme={theme} label={open === "edit" ? "Close editor" : "Edit"} subtle onPress={() => toggle("edit")} />
     </Wrap>
+    {open === "rename" ? <View style={{ gap: 8 }}>
+      <Field theme={theme} label="New name" value={newName} onChangeText={setNewName} />
+      <Wrap>
+        <Button theme={theme} label="Save name" disabled={!newName.trim()} onPress={() => void rename(c, newName).then((ok) => { if (ok) setOpen(""); })} />
+        <Button theme={theme} label="Cancel" subtle onPress={() => setOpen("")} />
+      </Wrap>
+    </View> : null}
     {open === "projects" ? <ProjectSelector theme={theme} stored={c} projects={hostProjects}
       onSave={async (next, base) => {
         if (!sameValue([c.projectIds, c.workspaceIds], base)) { setMessage({ kind: "error", text: `${c.name}'s projects were changed on another device. Your selection is kept; save again to replace them.` }); return false; }
@@ -181,6 +208,8 @@ export function CoordinatorCard({ theme, c, actions }: { theme: PluginTheme; c: 
         const fields = (x: Coordinator) => ({ name: x.name, model: x.model, instructions: x.instructions });
         if (!sameValue(fields(c), fields(base))) { setMessage({ kind: "error", text: `${c.name} was changed on another device since you started editing. Your draft is kept; Discard to load it.` }); return false; }
         const ok = await saveCoordinator({ ...c, ...fields(draft) });
+        // A new name also renames the running agent in Paseo's sidebar.
+        if (ok && draft.name.trim() !== c.name) { await renameInPaseo(c, draft.name.trim()); return ok; }
         setMessage(ok ? { kind: "success", text: `${draft.name} saved. Changes apply to its next agent.` } : { kind: "error", text: "Settings changed on another device. Your draft is kept; save again." });
         return ok;
       }}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.15 — 2026-10-22
+- All coordinators share one working folder, so Paseo lists them in one project (**coordinators**); each keeps its own context file. Coordinators started earlier keep working where they are.
+- **Rename** a coordinator from its card (or Edit): renames it in Workbench and its agent in Paseo's sidebar.
+
 ## 0.1.0-alpha.14 — 2026-10-22
 - "General coordinator" is now just **Coordinator** (settings v9 renames it if you had not renamed it yourself), and it can run **In a workspace**: a coordinator for that one workspace.
 - Settings: a separate **+ New specialist** button opens its own panel (name, Create, Cancel).
