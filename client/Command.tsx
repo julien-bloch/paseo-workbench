@@ -52,11 +52,10 @@ function useConversation(serverId: string, agentId: string) {
   return { items, agent, error, reload: () => setTick((t) => t + 1) };
 }
 
-export function Command({ host, theme, layout, values, directory, projects, openAgent, onSummarize, onArchive, coordinators, selected, onSelect }: {
+export function Command({ host, theme, layout, values, directory, projects, openAgent, onSummarize, coordinators, selected, onSelect }: {
   host: { id: string; label: string }; theme: PluginTheme; layout: { compact: boolean };
   values: Preferences; directory: ReturnType<typeof useDirectory>; projects: readonly ProjectGroup[];
   openAgent: (agentId: string, serverId: string) => void; onSummarize: (agentId: string, serverId: string) => void;
-  onArchive: (agentId: string, serverId: string) => void;
   coordinators: CoordinatorActions; selected: string; onSelect: (coordinatorId: string) => void;
 }) {
   const attention = useMemo(() => {
@@ -95,7 +94,7 @@ export function Command({ host, theme, layout, values, directory, projects, open
       <View style={{ flex: layout.compact ? undefined : 2, width: layout.compact ? "100%" : undefined, gap: 10 }}>
         <Section theme={theme} title="Its agents" subtitle="Everything it started or took over, nested by who started what. Tap one to open it.">
           {needs.length ? <Notice theme={theme} kind="error" text={`${needs.length} of its agents need you: ${needs.map((n) => `${n.title} (${n.headline.toLowerCase()})`).join("; ")}`} /> : null}
-          <AgentTree theme={theme} agents={team} native={native} attention={attention} openAgent={openAgent} onSummarize={onSummarize} onArchive={onArchive} releasable={direct} onRelease={(id) => void release(id)} empty="It has no agents yet." />
+          <AgentTree theme={theme} agents={team} native={native} attention={attention} openAgent={openAgent} onSummarize={onSummarize} releasable={direct} onRelease={(id) => void release(id)} empty="It has no agents yet." />
         </Section>
       </View>
     </View> : <Notice theme={theme} text={`${current.name} is not running. Start it above to chat with it.`} />}

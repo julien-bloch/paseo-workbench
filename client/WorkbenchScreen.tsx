@@ -118,9 +118,9 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
       onCoordinatorLaunched={id=>{setCommandSelection(id);setTab("command")}}/>:null}
     {tab==="command"?<Section theme={theme} title="Needs attention">
       {unobserved||!attention.length?<Notice theme={theme} kind={headline.clear?"info":"error"} text={headline.text}/>:null}
-      <AttentionList theme={theme} groups={attentionByProject} hostSuffix={id=>id&&directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent} onArchive={archiveOne}/>
+      <AttentionList theme={theme} groups={attentionByProject} hostSuffix={id=>id&&directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
-    {tab==="command"?<Command host={host} theme={theme} layout={layout} values={values} directory={directory} projects={projects} openAgent={openAgent} onSummarize={summarizeAction} onArchive={archiveOne}
+    {tab==="command"?<Command host={host} theme={theme} layout={layout} values={values} directory={directory} projects={projects} openAgent={openAgent} onSummarize={summarizeAction}
       coordinators={coordinators} selected={commandSelection} onSelect={setCommandSelection}/>:null}
     {tab==="overview"?<>
       <Section theme={theme} title="All agents" subtitle="Who started what. Tap any agent to open it.">

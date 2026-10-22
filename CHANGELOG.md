@@ -1,6 +1,7 @@
 # Changelog
 
 ## 0.1.0-alpha.17 — 2026-10-22
+- Archive buttons only in Overview (not in Command's Needs attention or a coordinator's tree).
 - **Worktrees** list in Overview: every Paseo worktree on the host with agents, activity and uncommitted changes; Remove (Paseo's archive) asks before discarding changes.
 - PR reviews reuse the worktree already open for that pull request; the PR manager is told to do the same for fixers.
 - Archiving the last agent of a Workbench PR-review worktree removes the worktree if nothing uncommitted would be lost.
