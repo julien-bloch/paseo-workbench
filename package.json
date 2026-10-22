@@ -1,0 +1,34 @@
+{
+  "name": "paseo-workbench",
+  "version": "0.1.0-alpha.13",
+  "private": true,
+  "type": "module",
+  "description": "Workbench for Paseo: coordinators, specialists and a command view over your agents",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node tests/run-unit.mjs",
+    "test": "npm run test:unit && npm run typecheck",
+    "test:integration": "node --import ./tests/integration/register.mjs --test --test-concurrency=1 tests/integration/workbench.integration.test.mjs"
+  },
+  "devDependencies": {
+    "@getpaseo/client": "0.12.0",
+    "@getpaseo/plugin": "0.12.0",
+    "@getpaseo/protocol": "0.12.0",
+    "@types/node": "^20.9.0",
+    "@types/react": "~19.2.0",
+    "react": "19.1.0",
+    "react-native": "0.81.5",
+    "typescript": "^5.9.3",
+    "zod": "^4.4.3"
+  },
+  "files": [
+    "paseo-plugin.json",
+    "index.client.tsx",
+    "index.server.ts",
+    "client",
+    "server",
+    "shared",
+    "README.md",
+    "docs"
+  ]
+}

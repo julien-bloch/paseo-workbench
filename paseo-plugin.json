@@ -1,0 +1,6 @@
+{
+  "id": "workbench",
+  "name": "Workbench",
+  "description": "A lightweight project overview, persistent coordinator, configurable specialists, and unified agent activity for Paseo.",
+  "requirements": { "paseo": ">=0.12.0" }
+}
