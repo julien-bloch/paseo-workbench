@@ -60,10 +60,18 @@ async function sendTask(agent:{id:string;send(text:string):Promise<void>},name:s
   }
 }
 
-/** A new worktree workspace checked out at a GitHub pull request, so the review never touches the user's checkout. */
-export async function createPullRequestWorkspace(paseo:PaseoApi,sourceDirectory:string,prNumber:number):Promise<{workspaceId:string}> {
+/**
+ * A worktree workspace checked out at a GitHub pull request, so the review never touches the user's checkout. One
+ * Workbench already opened for this pull request in this project is reused instead of adding another worktree.
+ */
+export async function createPullRequestWorkspace(paseo:PaseoApi,source:WorkbenchWorkspace,prNumber:number):Promise<{workspaceId:string}> {
+  const sourceDirectory=source.directory;
+  const title=`PR #${prNumber} review`;
+  // shortcut: looks at the first 200 workspaces; past that a duplicate worktree can be created.
+  const existing=(await paseo.workspaces.list({page:{limit:200}})).entries.find(w=>w.workspaceKind==="worktree"&&w.projectId===source.projectId&&w.title===title&&!w.archivingAt);
+  if(existing)return {workspaceId:existing.id};
   const workspace=await paseo.workspaces.create({
-    title:`PR #${prNumber} review`,
+    title,
     source:{kind:"worktree",cwd:sourceDirectory,action:"checkout",checkoutSource:{kind:"change_request",forge:"github",number:prNumber}},
   });
   return {workspaceId:workspace.id};
@@ -112,7 +120,7 @@ export async function createSpecialist(input:{
   }
   await checkChosenMode(paseo,primary);
 
-  const workspaceId=scope==="pull-request"?(await createPullRequestWorkspace(paseo,workspace.directory,prNumber!)).workspaceId:workspace.workspaceId;
+  const workspaceId=scope==="pull-request"?(await createPullRequestWorkspace(paseo,workspace,prNumber!)).workspaceId:workspace.workspaceId;
   const session=scope==="session"&&input.sessionAgentId?await sessionTranscript(paseo,input.sessionAgentId):undefined;
   const base=promptInput({helper,settings,project,scope,task,...(prNumber?{prNumber}:{}),...(input.prWatch?{prWatch:input.prWatch}:{}),...(session?{session}:{})});
   const target=scope==="pull-request"?`PR #${prNumber}`:session?`session "${session.title}"`:project.name;

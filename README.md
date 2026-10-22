@@ -1,6 +1,6 @@
 # Workbench for Paseo
 
-**Status: 0.1.0-alpha.16. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
+**Status: 0.1.0-alpha.17. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
 
 Workbench adds a cross-project overview, Coordinators that orchestrate agents, and independent reusable specialist agents (with an opt-in second opinion) to Paseo. It uses native Paseo agents, workspaces, agent labels, plugin settings, and the existing mobile-compatible plugin UI. It does not replace Claude Code's own delegation, create a mission engine, or change Paseo's core.
 
@@ -11,6 +11,7 @@ Workbench adds a cross-project overview, Coordinators that orchestrate agents, a
 - **Schedules** (Paseo's own scheduler): a scheduled specialist **in a workspace** is a Paseo schedule that starts a new agent there at each run (hourly, weekdays, daily, weekly or a custom cron, in your time zone). Scheduled **across projects** launches the coordinator now and adds a recurring **check-in** message to it (a Paseo heartbeat). Both are listed under **Schedules** on the Launch tab, where workspace schedules can be paused, resumed or deleted and check-ins removed. Scheduled runs are single reviews; a read-only Codex specialist cannot be scheduled (the scheduler cannot request Codex's sandbox), a read-only Claude one runs in `plan` mode.
 - **Scheduled runs** show under their schedule (time, status, result, **Open**). Paseo archives each run's agent when it ends, so runs never pile up in your projects.
 - **Cleaning up**: specialists you launch stay in their workspace when they finish (you usually want to read the result). **Archive** them from Needs attention or Overview, or **Archive finished specialists** in Overview to clear all finished Workbench specialists at once (with their review teams). Archived agents stay in Paseo's history. Nothing is archived automatically, and running agents, agents waiting on you, and coordinators are never offered.
+- **Worktrees** (Overview): every Git worktree Paseo created on this host, with its agents, last activity and whether it has uncommitted changes. **Remove** uses Paseo's own workspace archive (folder deleted, branch kept, its agents archived) and asks before discarding uncommitted changes. A PR review reuses the worktree already open for that pull request, and archiving the last agent of a Workbench PR-review worktree removes the worktree too, unless it has uncommitted changes.
 - **Taking over existing agents**: when launching a coordinator, pick existing top-level agents in its projects; they become its subagents (Paseo's parent label, set with `paseo agent update`), nested under it in Paseo and in Command, and the coordinator is told. **Release** in Command makes one top-level again (`paseo agent detach`).
 - **Command**: talk to a running Coordinator (archived ones disappear). Its conversation streams from Paseo's own timeline (markdown replies, one line per tool call, Workbench's own relay messages collapsed); its questions appear as forms you answer there; other permission requests show what they would do and open in Paseo; Enter sends (steering a running turn, as in Paseo); quick prompts ("Where do things stand?", "What needs me?") and a context-usage meter. Beside it (below it on a phone), the tree of every agent it started, with what each is waiting on from you. Paseo's own agent view keeps working.
 - **Projects across connected hosts**, grouped by `(serverId, projectId)`. A host that is offline or fails to load is named in red and counted ("1 of 2 hosts read"). Workbench never shows "all clear" for hosts it could not read.
@@ -132,6 +133,8 @@ paseo daemon stop --home /tmp/wb-dev/home
 ```
 
 ## Known issues
+
+- **Paseo's workspace archive deletes a worktree's folder even with uncommitted changes**, without asking. Workbench checks first and asks; Paseo's own sidebar does not. Branches are kept, so committed work survives.
 
 - **Small models may miss Paseo's tools.** Claude Code loads MCP tools on demand; Coordinator and PR manager instructions say to search for "paseo" first, but Claude Haiku sometimes still tries the shell instead. That stops at a permission prompt (nothing runs). Use a stronger model for coordinators.
 

@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { connect } from './connect.mjs';
 import { directoryForHost, applyNativeUpdate } from '../../client/directory.ts';
-import { createSpecialist, createCoordinator, findCoordinator, agentToolsEnabled } from '../../client/actions.ts';
+import { createSpecialist, createCoordinator, createPullRequestWorkspace, findCoordinator, agentToolsEnabled } from '../../client/actions.ts';
 import { groupProjects, hierarchyRows } from '../../shared/model.ts';
 import { preferences, DEFAULT_SPECIALISTS, DEFAULT_COORDINATOR, PR_MANAGER_INSTRUCTIONS } from '../../shared/settings.ts';
 
@@ -76,6 +76,10 @@ before(async () => {
 
 after(async () => {
   for (const id of created) await paseo.agents.ref(id).archive().catch(() => {});
+  // Worktrees opened for the temporary test repositories (PR reviews, fixers) would pile up on the test daemon.
+  const tmp = realpathSync(tmpdir());
+  for (const w of (await paseo.workspaces.list({ page: { limit: 200 } })).entries)
+    if (w.workspaceKind === 'worktree' && existsSync(w.projectRootPath ?? '/nope') && realpathSync(w.projectRootPath).startsWith(tmp)) await paseo.workspaces.archive(w.id).catch(() => {});
   await conn?.close();
 });
 
@@ -627,4 +631,30 @@ test('specialists folder: the server reads *.md files from the folder in setting
     await set('relative/path');
     assert.match((await rpc('workbench.folder_specialists', {})).error, /absolute path/);
   } finally { await set(read.values.specialistsFolder ?? ''); }
+});
+
+test('worktrees: PR-review worktree reused; listed with uncommitted state; removed only when unused and clean (or on discard)', async () => {
+  const stamp = Date.now().toString(36);
+  // A worktree titled the way Workbench titles its PR-review worktrees (no network needed).
+  const h = await paseo.workspaces.create({ title: 'PR #999 review', source: { kind: 'worktree', cwd: repo, action: 'branch-off', branchName: `wb-pr999-${stamp}` } });
+  const tree = (await paseo.workspaces.list({ page: { limit: 200 } })).entries.find((w) => w.id === h.id);
+  assert.equal(tree.workspaceKind, 'worktree');
+  assert.equal((await createPullRequestWorkspace(paseo, workspace, 999)).workspaceId, tree.id, 'reused, not a second worktree');
+
+  const agent = await paseo.workspaces.ref(tree.id).agents.create({ config: { provider: MODEL, modeId: 'plan' }, title: 'PR 999 reviewer' });
+  created.push(agent.id);
+  const row = async () => (await rpc('workbench.worktrees', {})).worktrees.find((w) => w.workspaceId === tree.id);
+  assert.deepEqual((({ prReview, dirty, agents }) => ({ prReview, dirty, agents }))(await row()), { prReview: true, dirty: false, agents: 1 });
+  assert.deepEqual(await rpc('workbench.remove_worktree', { workspaceId: tree.id, mode: 'if-unused-pr-review' }), { removed: false, reason: 'other agents still use it' });
+  await paseo.agents.ref(agent.id).archive();
+
+  writeFileSync(join(tree.workspaceDirectory, 'scratch.txt'), 'unsaved');
+  assert.equal((await row()).dirty, true);
+  assert.deepEqual(await rpc('workbench.remove_worktree', { workspaceId: tree.id, mode: 'if-unused-pr-review' }), { removed: false, reason: 'it has uncommitted changes' });
+  assert.deepEqual(await rpc('workbench.remove_worktree', { workspaceId: tree.id, mode: 'clean-only' }), { removed: false, reason: 'it has uncommitted changes' });
+  assert.ok(existsSync(tree.workspaceDirectory), 'kept while it has uncommitted changes');
+  assert.deepEqual(await rpc('workbench.remove_worktree', { workspaceId: tree.id, mode: 'discard' }), { removed: true });
+  assert.equal(existsSync(tree.workspaceDirectory), false, 'folder removed by Paseo');
+  assert.notEqual(execFileSync('git', ['-C', repo, 'branch', '--list', `wb-pr999-${stamp}`], { encoding: 'utf8' }).trim(), '', 'branch kept');
+  assert.deepEqual(await rpc('workbench.remove_worktree', { workspaceId: workspace.workspaceId, mode: 'discard' }), { removed: false, reason: 'not a worktree workspace' });
 });

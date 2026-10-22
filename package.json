@@ -1,6 +1,6 @@
 {
   "name": "paseo-workbench",
-  "version": "0.1.0-alpha.16",
+  "version": "0.1.0-alpha.17",
   "private": true,
   "type": "module",
   "description": "Workbench for Paseo: coordinators, specialists and a command view over your agents",

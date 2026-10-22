@@ -1,10 +1,11 @@
 import type { PluginServerContext } from "@getpaseo/plugin/server";
 import { preferences } from "./shared/settings";
-import { adoptAgents, createSchedule, folderSpecialists, renameCoordinator, ensureCoordinatorHome, listSchedules, registerCoordinator, registerSecondOpinion, scheduleAction, writeCoordinatorContext } from "./shared/rpc";
+import { adoptAgents, createSchedule, folderSpecialists, listWorktrees, removeWorktree, renameCoordinator, ensureCoordinatorHome, listSchedules, registerCoordinator, registerSecondOpinion, scheduleAction, writeCoordinatorContext } from "./shared/rpc";
 import { prepareHome, writeBrief } from "./server/context";
 import { registerSecondOpinionPair, registerSecondOpinionRelay } from "./server/secondOpinion";
 import { adoptOrRelease, renameCoordinatorAgent } from "./server/adopt";
 import { readSpecialistsFolder } from "./server/folder";
+import { listWorkbenchWorktrees, removeWorkbenchWorktree } from "./server/worktrees";
 import { createWorkbenchSchedule, listWorkbenchSchedules, workbenchScheduleAction } from "./server/schedules";
 import { registerCoordinatorAgent, registerCoordinatorPermissions } from "./server/coordinatorPermissions";
 
@@ -20,6 +21,8 @@ export default function contribute(server:PluginServerContext) {
   server.handle(adoptAgents, async ({coordinatorAgentId,agentIds,action}, {paseo}) => adoptOrRelease(paseo,coordinatorAgentId,agentIds,action));
   server.handle(folderSpecialists, async () => readSpecialistsFolder(settings));
   server.handle(renameCoordinator, async ({agentId,name}) => renameCoordinatorAgent(agentId,name));
+  server.handle(listWorktrees, async (_input, {paseo}) => listWorkbenchWorktrees(paseo));
+  server.handle(removeWorktree, async ({workspaceId,mode}, {paseo}) => removeWorkbenchWorktree(paseo,workspaceId,mode));
   const cleanups = [registerSecondOpinionRelay(server), registerCoordinatorPermissions(server, settings)];
   return () => { for (const cleanup of cleanups) cleanup(); };
 }

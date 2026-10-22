@@ -93,3 +93,26 @@ export const renameCoordinator = defineRpc({
   input: z.object({ agentId, name: z.string().trim().min(1).max(80) }),
   output: z.object({ ok: z.boolean() }),
 });
+
+/** Worktree workspaces on this host, with what removing one would lose. */
+export const worktreeRow = z.object({
+  workspaceId: z.string(), name: z.string(), project: z.string(), directory: z.string(), status: z.string(), activityAt: z.string().nullable(),
+  agents: z.number(), running: z.number(),
+  /** Uncommitted or untracked changes; true also when git could not tell. */
+  dirty: z.boolean(),
+  /** A "PR #n review" worktree Workbench opened. */
+  prReview: z.boolean(),
+});
+export type WorktreeRow = z.infer<typeof worktreeRow>;
+export const listWorktrees = defineRpc({ name: "workbench.worktrees", input: z.object({}), output: z.object({ worktrees: z.array(worktreeRow) }) });
+
+/**
+ * Remove a worktree with Paseo's own workspace archive (it deletes the folder, keeps the branch, archives its agents).
+ * "clean-only": refused if it has uncommitted changes. "discard": also when it does. "if-unused-pr-review": only a
+ * Workbench PR-review worktree with no live agents and no uncommitted changes (used after archiving its last agent).
+ */
+export const removeWorktree = defineRpc({
+  name: "workbench.remove_worktree",
+  input: z.object({ workspaceId: z.string().min(1).max(200), mode: z.enum(["clean-only", "discard", "if-unused-pr-review"]) }),
+  output: z.object({ removed: z.boolean(), reason: z.string().optional() }),
+});

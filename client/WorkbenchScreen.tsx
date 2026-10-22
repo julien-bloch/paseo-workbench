@@ -13,6 +13,9 @@ import { AgentTree } from "./AgentTree";
 import { useDirectory } from "./data";
 import { Button, Choice, Field, Notice, Section, Wrap } from "./ui";
 import { SettingsEditor } from "./SettingsEditor";
+import { Worktrees } from "./Worktrees";
+import { useRpc } from "@getpaseo/plugin/client";
+import { removeWorktree } from "../shared/rpc";
 import { useFolderSpecialists } from "./folder";
 import { importSpecialists, mergeSpecialists } from "../shared/specialistFiles";
 
@@ -35,6 +38,8 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
   const [commandSelection,setCommandSelection]=useState("");
   const [importText,setImportText]=useState("");
   const [confirmBulk,setConfirmBulk]=useState(false);
+  const [worktreesVersion,setWorktreesVersion]=useState(0);
+  const removeTree=useRpc(removeWorktree);
   const [message,setMessage]=useState<{kind:"info"|"error"|"success";text:string}|null>(null);
   // Coordinator homes are Workbench plumbing, not user projects.
   const projects=useMemo(()=>groupProjects(directory.workspaces.filter(w=>!isCoordinatorHome(w.directory)),directory.agents),[directory.workspaces,directory.agents]);
@@ -80,7 +85,16 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
     const ids=targets.flatMap(t=>withTeam(directory.agents,t.serverId,t.agentId).map(agentId=>({agentId,serverId:t.serverId})));
     const failed:string[]=[];
     for(const t of ids){try{await getPaseoClient(t.serverId).agents.ref(t.agentId).archive()}catch(e){failed.push(e instanceof Error?e.message:String(e))}}
-    setMessage(failed.length?{kind:"error",text:`Archived ${ids.length-failed.length} of ${ids.length}: ${failed[0]}`}:{kind:"success",text:`Archived ${ids.length} agent${ids.length===1?"":"s"}. They stay in Paseo's history.`});
+    // A Workbench PR-review worktree whose last agent was just archived goes too, if nothing uncommitted would be lost.
+    const trees=[...new Set(ids.map(t=>directory.agents.find(a=>a.serverId===t.serverId&&a.agentId===t.agentId)?.workspaceId).filter((w):w is string=>Boolean(w)))];
+    const kept:string[]=[];let removed=0;
+    for(const workspaceId of trees){
+      const r=await removeTree({workspaceId,mode:"if-unused-pr-review"}).catch(()=>null);
+      if(r?.removed)removed++;else if(r?.reason==="it has uncommitted changes")kept.push(workspaceId);
+    }
+    const extra=(removed?` Removed ${removed} PR-review worktree${removed===1?"":"s"}.`:"")+(kept.length?` Kept ${kept.length} PR-review worktree${kept.length===1?"":"s"} with uncommitted changes (see Worktrees).`:"");
+    setMessage(failed.length?{kind:"error",text:`Archived ${ids.length-failed.length} of ${ids.length}: ${failed[0]}`}:{kind:"success",text:`Archived ${ids.length} agent${ids.length===1?"":"s"}. They stay in Paseo's history.${extra}`});
+    setWorktreesVersion(v=>v+1);
     await directory.refresh();
   }
   const archiveOne=(agentId:string,serverId:string)=>void archive([{agentId,serverId}]);
@@ -128,6 +142,7 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
           <AgentTree theme={theme} agents={agents} native={native} attention={attentionIndex} openAgent={openAgent} onSummarize={summarizeAction} onArchive={archiveOne} empty={unobserved?"No agents on reachable hosts with this filter.":"No agents found with this filter."}/></>;
         })()}
       </Section>
+      <Worktrees theme={theme} version={worktreesVersion}/>
     </>:null}
     {tab==="settings"?<>
       <SettingsEditor theme={theme} values={values} onSave={onSave} folder={folder}/>

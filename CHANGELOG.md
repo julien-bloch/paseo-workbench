@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.17 — 2026-10-22
+- **Worktrees** list in Overview: every Paseo worktree on the host with agents, activity and uncommitted changes; Remove (Paseo's archive) asks before discarding changes.
+- PR reviews reuse the worktree already open for that pull request; the PR manager is told to do the same for fixers.
+- Archiving the last agent of a Workbench PR-review worktree removes the worktree if nothing uncommitted would be lost.
+- Integration tests archive the worktrees they create.
+
 ## 0.1.0-alpha.16 — 2026-10-22
 - Schedules list each run (time, status, result, Open). Paseo already archives a run's agent when it ends.
 - **Archive** finished or failed agents from Needs attention, Overview and a coordinator's tree; **Archive finished specialists** in Overview clears all finished Workbench specialists (with their review teams) after a confirm.
