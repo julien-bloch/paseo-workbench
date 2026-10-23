@@ -25,7 +25,8 @@ export function transcriptRows(items: readonly Item[]): TranscriptRow[] {
       case "user_message": {
         const text = item.text ?? "";
         if (WORKBENCH_PREFIXES.some((p) => text.startsWith(p))) {
-          rows.push({ kind: "workbench", key, title: text.split("\n")[0]!.slice(0, 120), text });
+          // The row is already labelled Workbench; drop a leading "[Workbench] " from its title.
+          rows.push({ kind: "workbench", key, title: text.split("\n")[0]!.replace(/^\[Workbench\]\s*/, "").slice(0, 120), text });
         } else rows.push({ kind: "user", key, text });
         break;
       }

@@ -127,7 +127,7 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
         {badSkills.length?<Notice theme={theme} kind="error" text={`Not a skill name: ${badSkills.join(", ")}. Use letters, digits, dots, dashes, underscores or colons.`}/>:null}
         <Text style={{color:theme.colors.foreground,fontSize:12,fontWeight:"600"}}>Model override</Text>
         <ModelPicker theme={theme} catalog={catalog} value={draft.model} onChange={model=>updateSpecialist({model})} allowEmpty="Use default model"/>
-        {draft.coordinatorOnly?<Notice theme={theme} text="Coordinator-only profile: launched from Launch > Across projects. It runs in its provider's default mode and gets the coordinator's autonomy; the review settings below do not apply."/>:<>
+        {draft.coordinatorOnly?<Notice theme={theme} text="Coordinator-only profile: always runs as a coordinator (Launch > In a workspace or Across projects), in its provider's default mode with the coordinator's autonomy; the review settings below do not apply."/>:<>
         <Text style={{color:theme.colors.foreground,fontSize:12,fontWeight:"600"}}>Permission boundary</Text>
         <Wrap>
           <Choice theme={theme} label="Require enforced read-only" selected={draft.requireReadOnly} onPress={()=>updateSpecialist({requireReadOnly:true,modeId:""})}/>

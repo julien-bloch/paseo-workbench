@@ -1,8 +1,22 @@
 # Workbench for Paseo
 
-**Status: 0.1.0-alpha.20. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
+**Status: 0.1.0-alpha.21. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
 
 Workbench adds a cross-project overview, Coordinators that orchestrate agents, and independent reusable specialist agents (with an opt-in second opinion) to Paseo. It uses native Paseo agents, workspaces, agent labels, plugin settings, and the existing mobile-compatible plugin UI. It does not replace Claude Code's own delegation, create a mission engine, or change Paseo's core.
+
+## Screenshots
+
+**Command**: what needs you, then a coordinator's chat (its questions answered in place) beside the agents it runs.
+
+![Command tab: needs attention, a coordinator's chat with a question, and its agents](docs/screenshots/command.png)
+
+| Launch | Overview |
+|---|---|
+| ![Launch tab: one form to start a specialist or coordinator](docs/screenshots/launch.png) | ![Overview tab: every agent by who started what, and worktrees](docs/screenshots/overview.png) |
+
+| Settings | Phone | Sidebar badge |
+|---|---|---|
+| ![Settings: default model, your specialists folder, specialists](docs/screenshots/settings.png) | ![Command tab on a phone](docs/screenshots/phone-command.png) | ![Workbench in Paseo's sidebar with attention and running counts](docs/screenshots/sidebar-badge.png) |
 
 ## What it does
 

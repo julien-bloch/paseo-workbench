@@ -115,7 +115,9 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
   const togglePr=(w:PrWatch)=>setPrWatch(w==="all"?(prWatch.includes("all")?[]:["all"]):prWatch.includes(w)?prWatch.filter(x=>x!==w):[...prWatch.filter(x=>x!=="all"),w]);
   const body=<>
     {specialistId===undefined?<Wrap>{profiles.map(h=><Choice key={h.id} theme={theme} label={h.name} selected={h.id===helper?.id} onPress={()=>{setSelectedId(h.id);setScope(firstScope(h.id));setChosenReview(null)}}/>)}</Wrap>:null}
-    {helper?<Text style={{color:theme.colors.foregroundMuted,fontSize:12}}>{helper.description}{helper.skills.length?` · Skills: ${helper.skills.join(", ")}`:""}</Text>:<Notice theme={theme} text="Add a specialist in Workbench settings."/>}
+    {/* In the Launch form the description is already shown above; only its skills are new here. */}
+    {helper?(embedded?(helper.skills.length?<Text style={{color:theme.colors.foregroundMuted,fontSize:12}}>Skills: {helper.skills.join(", ")}</Text>:null)
+      :<Text style={{color:theme.colors.foregroundMuted,fontSize:12}}>{helper.description}{helper.skills.length?` · Skills: ${helper.skills.join(", ")}`:""}</Text>):<Notice theme={theme} text="Add a specialist in Workbench settings."/>}
     <Text style={{color:theme.colors.foregroundMuted,fontSize:11}}>Model: {model||"Not configured: choose one in Workbench > Settings."}</Text>
     {mode?<Notice theme={theme} kind={mode.kind==="read-only"?"success":mode.kind==="sandbox"?"info":"error"} text={describeMode(mode)}/>:null}
     {blocked?<Notice theme={theme} kind="error" text={blocked}/>:null}
@@ -139,7 +141,7 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
           <Choice theme={theme} label={`Committee with ${secondModel}`} selected={review==="committee"} onPress={()=>setChosenReview("committee")}/>
         </>:null}
       </Wrap>
-      {!secondModel?<Notice theme={theme} kind={helper.defaultReview!=="single"?"error":"info"} text={`${helper.defaultReview!=="single"?`${helper.name} defaults to a ${helper.defaultReview==="committee"?"committee":"second opinion"}, which needs`:"Second opinion and committee need"} a second reviewer model: set one in Settings > Specialist profiles.`}/>:null}
+      {!secondModel?<Notice theme={theme} kind={helper.defaultReview!=="single"?"error":"info"} text={`${helper.defaultReview!=="single"?`${helper.name} defaults to a ${helper.defaultReview==="committee"?"committee":"second opinion"}, which needs`:"Second opinion and committee need"} a second reviewer model: set one in Settings > Specialists.`}/>:null}
       {team?<Text style={{color:theme.colors.foregroundMuted,fontSize:11}}>{review==="committee"?`Both review independently; Workbench then gives each the other's review to check, and ${helper.name} writes the consensus with where they diverged. Adds the second model's time and tokens.`:`The second reviewer's findings go to ${helper.name}, which verifies each one. Adds the second model's time and tokens.`}</Text>:null}
       {team&&secondMode?<Notice theme={theme} kind={secondMode.kind==="read-only"?"success":secondMode.kind==="sandbox"?"info":"error"} text={`${teamLabel}: ${describeMode(secondMode)}`}/>:null}
       {team&&secondBlocked?<Notice theme={theme} kind="error" text={secondBlocked}/>:null}
@@ -154,7 +156,7 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
         <Text selectable style={{color:theme.colors.foreground,fontSize:11,backgroundColor:theme.colors.surface2,padding:10,borderRadius:8}}>{text}</Text>
       </>;
       return <>
-        <Text style={{color:theme.colors.foregroundMuted,fontSize:11}}>Exactly what Launch sends, updated as you change the scope and task. The profile's instructions are also its system prompt. Edit them in Settings &gt; Specialist profiles.</Text>
+        <Text style={{color:theme.colors.foregroundMuted,fontSize:11}}>Exactly what Launch sends, updated as you change the scope and task. The profile's instructions are also its system prompt. Edit them in Settings &gt; Specialists.</Text>
         {block(`${helper.name} prompt`,specialistPrompt({...base,...(withSecond?{secondOpinion:{role:review==="committee"?"chair" as const:"primary" as const,model:secondModel}}:{})}))}
         {withSecond?block(`${teamLabel} prompt (${secondModel})`,specialistPrompt({...base,secondOpinion:review==="committee"?{role:"member" as const,model}:{role:"second" as const}})):null}
       </>;

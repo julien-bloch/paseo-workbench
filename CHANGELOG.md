@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.21 — 2026-10-23
+- README screenshots (staged demo projects).
+- Launch no longer repeats the specialist's description; hints point to "Settings > Specialists"; the Coordinator profile note mentions both places it runs; Workbench notices in a coordinator's chat no longer read "[Workbench]" twice.
+
 ## 0.1.0-alpha.20 — 2026-10-23
 - Command: the coordinator chooser sits above "Its agents" (below the chat on a phone), within reach of the message box.
 - Question forms show each option's full description (and preview), not just its label.
