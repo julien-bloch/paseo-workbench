@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.0-alpha.22 — 2026-10-23
+- Command: a **Running** section under Needs attention lists every agent working now (project / workspace, model, last activity; "also needs you" when it is also waiting on you). Tap to open.
+
 ## 0.1.0-alpha.21 — 2026-10-23
 - README screenshots (staged demo projects).
 - Launch no longer repeats the specialist's description; hints point to "Settings > Specialists"; the Coordinator profile note mentions both places it runs; Workbench notices in a coordinator's chat no longer read "[Workbench]" twice.

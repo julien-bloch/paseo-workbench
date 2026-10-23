@@ -7,6 +7,7 @@ import { attentionGroups, attentionHeadline, finishedSpecialists, groupProjects,
 import { useCoordinators } from "./Coordinators";
 import { LaunchTab } from "./LaunchTab";
 import { AttentionList } from "./AttentionList";
+import { RunningList } from "./RunningList";
 import { createSpecialist } from "./actions";
 import { Command } from "./Command";
 import { AgentTree } from "./AgentTree";
@@ -119,6 +120,9 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
     {tab==="command"?<Section theme={theme} title="Needs attention">
       {unobserved||!attention.length?<Notice theme={theme} kind={headline.clear?"info":"error"} text={headline.text}/>:null}
       <AttentionList theme={theme} groups={attentionByProject} hostSuffix={id=>id&&directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
+    </Section>:null}
+    {tab==="command"?<Section theme={theme} title={`Running (${running.length})`}>
+      <RunningList theme={theme} agents={directory.agents} workspaces={directory.workspaces} needsYou={new Set(attentionIndex.keys())} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
     {tab==="command"?<Command host={host} theme={theme} layout={layout} values={values} directory={directory} projects={projects} openAgent={openAgent} onSummarize={summarizeAction}
       coordinators={coordinators} selected={commandSelection} onSelect={setCommandSelection}/>:null}
