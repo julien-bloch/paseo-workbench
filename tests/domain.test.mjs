@@ -345,3 +345,8 @@ test('sidebar counts: attention items like the header, plus agents running or st
   assert.deepEqual(sidebarCounts(agents,projects),{attention:attentionGroups(agents,projects).reduce((n,g)=>n+g.items.length,0),running:2});
   assert.ok(sidebarCounts(agents,projects).attention>=1);
 });
+
+test('questions keep each option\'s full information (description, preview)',()=>{
+  const [q]=parseQuestions({questions:[{question:'Which plan?',header:'Plan',multiSelect:false,options:[{label:'A',description:'Fast, but skips the cache.',preview:'step 1\nstep 2'},{label:'B'}]}]});
+  assert.deepEqual(q.options,[{label:'A',description:'Fast, but skips the cache.',preview:'step 1\nstep 2'},{label:'B'}]);
+});

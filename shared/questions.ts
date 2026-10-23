@@ -4,7 +4,7 @@
  * request's input plus `answers` keyed by each question's header (several choices joined with ", "),
  * or deny with "Dismissed by user". The daemon handles the provider-specific part.
  */
-export interface Question { question: string; header: string; options: { label: string; description?: string }[]; multiSelect: boolean; allowOther: boolean }
+export interface Question { question: string; header: string; options: { label: string; description?: string; preview?: string }[]; multiSelect: boolean; allowOther: boolean }
 
 /** The request's questions, or null when its input is not a question form. */
 export function parseQuestions(input: unknown): Question[] | null {
@@ -16,7 +16,7 @@ export function parseQuestions(input: unknown): Question[] | null {
     if (typeof q.question !== "string" || typeof q.header !== "string" || !Array.isArray(q.options)) return null;
     const options = (q.options as unknown[]).map((o) => (o && typeof o === "object" ? o : {}) as Record<string, unknown>)
       .filter((o) => typeof o.label === "string")
-      .map((o) => (typeof o.description === "string" ? { label: o.label as string, description: o.description } : { label: o.label as string }));
+      .map((o) => ({ label: o.label as string, ...(typeof o.description === "string" ? { description: o.description } : {}), ...(typeof o.preview === "string" ? { preview: o.preview } : {}) }));
     questions.push({ question: q.question, header: q.header, options, multiSelect: q.multiSelect === true, allowOther: q.allowOther === true || q.isOther === true || options.length === 0 });
   }
   return questions;

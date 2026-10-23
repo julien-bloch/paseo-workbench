@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import type { PaseoAgent } from "@getpaseo/client";
 import { getPaseoClient, useRpc } from "@getpaseo/plugin/client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, ScrollView, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { PARENT_AGENT_ID_LABEL, type Preferences } from "../shared/settings";
 import { adoptAgents } from "../shared/rpc";
 import { attentionGroups, permissionSummary, subtree, type AttentionItem, type ProjectGroup } from "../shared/model";
@@ -14,11 +14,6 @@ import { AgentTree } from "./AgentTree";
 import { Markdown } from "./markdown";
 import { Button, Choice, Notice, Section, Status, Wrap } from "./ui";
 
-const CHECK_PRS = "Check the pull requests you watch now. Report each one's status, what it needs and your recommended fix, leading with what needs me. Start fixers only for pull requests that clearly need code work.";
-const QUICK = [
-  ["Where do things stand?", "Give me bearings: what needs my decision, what is under way, what finished since we last spoke, and what you plan next. Be brief."],
-  ["What needs me?", "List only what needs my decision right now, each with your recommendation."],
-] as const;
 
 type Pending = PaseoAgent["pendingPermissions"][number];
 
@@ -82,16 +77,21 @@ export function Command({ host, theme, layout, values, directory, projects, open
     await directory.refresh();
   }
   const needs = agent ? team.map((a) => attention.get(`${a.serverId}:${a.agentId}`)).filter((i): i is AttentionItem => Boolean(i) && i!.agentId !== agent.agentId) : [];
-  return <View style={{ gap: 12 }}>
+  // Beside its agents (below the chat on a phone), so switching coordinator stays in reach of the composer.
+  const chooser = <View style={{ gap: 6 }}>
+    <Text style={{ color: theme.colors.foreground, fontSize: 12, fontWeight: "600" }}>Coordinators</Text>
     <Wrap>{shown.map((c) => <Choice key={c.id} theme={theme} label={`${c.name}${coordinators.liveAgent(c) ? "" : " (not running)"}`} selected={c.id === current.id} onPress={() => onSelect(c.id)} />)}</Wrap>
+  </View>;
+  return <View style={{ gap: 12 }}>
+    {agent ? null : chooser}
     {coordinators.message ? <Notice theme={theme} {...coordinators.message} /> : null}
     <CoordinatorCard key={current.id} theme={theme} c={current} actions={coordinators} />
     {agent ? <View style={{ flexDirection: layout.compact ? "column" : "row", gap: 14, alignItems: "flex-start" }}>
       <View style={{ flex: layout.compact ? undefined : 3, width: layout.compact ? "100%" : undefined }}>
-        <Chat key={agent.agentId} theme={theme} serverId={host.id} agentId={agent.agentId} title={current.name} compact={layout.compact} openAgent={openAgent}
-          quick={current.kind === "pr-manager" ? [["Check PRs", CHECK_PRS], ...QUICK] : QUICK} />
+        <Chat key={agent.agentId} theme={theme} serverId={host.id} agentId={agent.agentId} title={current.name} compact={layout.compact} openAgent={openAgent} />
       </View>
       <View style={{ flex: layout.compact ? undefined : 2, width: layout.compact ? "100%" : undefined, gap: 10 }}>
+        {chooser}
         <Section theme={theme} title="Its agents" subtitle="Everything it started or took over, nested by who started what. Tap one to open it.">
           {needs.length ? <Notice theme={theme} kind="error" text={`${needs.length} of its agents need you: ${needs.map((n) => `${n.title} (${n.headline.toLowerCase()})`).join("; ")}`} /> : null}
           <AgentTree theme={theme} agents={team} native={native} attention={attention} openAgent={openAgent} onSummarize={onSummarize} releasable={direct} onRelease={(id) => void release(id)} empty="It has no agents yet." />
@@ -101,9 +101,8 @@ export function Command({ host, theme, layout, values, directory, projects, open
   </View>;
 }
 
-function Chat({ theme, serverId, agentId, title, compact, openAgent, quick }: {
+function Chat({ theme, serverId, agentId, title, compact, openAgent }: {
   theme: PluginTheme; serverId: string; agentId: string; title: string; compact: boolean; openAgent: (agentId: string, serverId: string) => void;
-  quick: readonly (readonly [string, string])[];
 }) {
   const { items, agent, error, reload } = useConversation(serverId, agentId);
   const rows = useMemo(() => transcriptRows(items as Parameters<typeof transcriptRows>[0]), [items]);
@@ -154,7 +153,6 @@ function Chat({ theme, serverId, agentId, title, compact, openAgent, quick }: {
       {agent?.status === "running" ? <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>Working…</Text> : null}
     </ScrollView>
     {(agent?.pendingPermissions ?? []).map((request) => <PendingCard key={request.id} theme={theme} serverId={serverId} agentId={agentId} request={request} onDone={reload} openAgent={openAgent} />)}
-    <Wrap>{quick.map(([label, text]) => <Choice key={label} theme={theme} label={label} selected={false} onPress={() => void send(text)} />)}</Wrap>
     <View style={{ flexDirection: "row", gap: 8, alignItems: "flex-end" }}>
       <TextInput value={draft} onChangeText={setDraft} multiline placeholder={`Message ${title}${Platform.OS === "web" ? " (Enter to send, Shift+Enter for a new line)" : ""}`}
         placeholderTextColor={theme.colors.foregroundMuted} accessibilityLabel={`Message ${title}`}
@@ -195,8 +193,17 @@ function PendingCard({ theme, serverId, agentId, request, onDone, openAgent }: {
   </View>;
   return <View style={box}>
     {questions.map((q, i) => <View key={i} style={{ gap: 6 }}>
-      <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{q.question}</Text>
-      <Wrap>{q.options.map((o, n) => <Choice key={n} theme={theme} label={o.label} selected={(chosen[i] ?? []).includes(n)} onPress={() => setChosen({ ...chosen, [i]: toggleChoice(chosen[i] ?? [], n, q.multiSelect) })} />)}</Wrap>
+      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11, fontWeight: "600" }}>{q.header}{q.multiSelect ? " · choose any" : ""}</Text>
+      <Text selectable style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{q.question}</Text>
+      {q.options.map((o, n) => {
+        const on = (chosen[i] ?? []).includes(n);
+        return <Pressable key={n} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={o.label} onPress={() => setChosen({ ...chosen, [i]: toggleChoice(chosen[i] ?? [], n, q.multiSelect) })}
+          style={({ pressed }) => ({ gap: 4, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: on ? theme.colors.accent : theme.colors.border, backgroundColor: on ? theme.colors.surface2 : pressed ? theme.colors.surface2 : "transparent" })}>
+          <Text style={{ color: on ? theme.colors.accent : theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{on ? "✓ " : ""}{o.label}</Text>
+          {o.description ? <Text selectable style={{ color: theme.colors.foreground, fontSize: 12, lineHeight: 17 }}>{o.description}</Text> : null}
+          {o.preview ? <Text selectable style={{ color: theme.colors.foreground, fontSize: 11, backgroundColor: theme.colors.surface1, padding: 8, borderRadius: 6 }}>{o.preview}</Text> : null}
+        </Pressable>;
+      })}
       {q.allowOther ? <TextInput value={typed[i] ?? ""} onChangeText={(t) => setTyped({ ...typed, [i]: t })} placeholder="Or type an answer" placeholderTextColor={theme.colors.foregroundMuted}
         style={{ color: theme.colors.foreground, backgroundColor: theme.colors.surface2, borderRadius: 6, padding: 8, fontSize: 12 }} /> : null}
     </View>)}

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.0-alpha.20 — 2026-10-23
+- Command: the coordinator chooser sits above "Its agents" (below the chat on a phone), within reach of the message box.
+- Question forms show each option's full description (and preview), not just its label.
+- Removed the suggested messages ("Where do things stand?", "What needs me?", "Check PRs").
+
 ## 0.1.0-alpha.19 — 2026-10-22
 - Sidebar badge beside Workbench: agents that need you (amber) and agents working (▶).
 
