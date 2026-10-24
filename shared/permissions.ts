@@ -74,23 +74,97 @@ export function escalation(input: unknown): string | null {
 }
 
 // A PR manager's own read-only commands: one gh/git read, no chaining, redirection, substitution or escapes.
+// Every argument is checked against an allowlist per subcommand (default deny): a flag that is not listed, such as
+// `-XDELETE` or `git branch -D`, keeps the command pending for the user.
 const SHELL_META = /[;&|<>`$\\\n\r]/;
-const READ_ONLY_PR_COMMANDS = [
-  /^gh(\s+-R\s+\S+)?\s+pr\s+(list|view|checks|diff|status)(\s|$)/,
-  /^gh(\s+-R\s+\S+)?\s+run\s+(list|view)(\s|$)/,
-  /^gh\s+api\s+\S+/,
-  /^git\s+-C\s+\S+\s+(status|log|diff|show|fetch|rev-parse|remote\s+-v|branch)(\s|$)/,
-];
+
+type Rule = {
+  /** Flags this subcommand may use: "flag" takes no value, "value" takes one (`--x v` or `--x=v`). */
+  flags: Record<string, "flag" | "value">;
+  /** Positional arguments allowed, each checked by `ok`. */
+  positional: { max: number; ok: (token: string) => boolean };
+};
+const any = (t: string) => !t.startsWith("-");
+const v = "value" as const, f = "flag" as const;
+const REPO = { "-R": v, "--repo": v };
+const JSON_OUT = { "--json": v, "--jq": v, "-q": v };
+
+const GH_PR: Record<string, Rule> = {
+  list: { flags: { ...REPO, ...JSON_OUT, "--author": v, "--search": v, "-S": v, "--state": v, "-s": v, "--limit": v, "-L": v, "--label": v, "-l": v, "--base": v, "-B": v, "--head": v, "-H": v, "--assignee": v, "-a": v, "--draft": f }, positional: { max: 0, ok: any } },
+  view: { flags: { ...REPO, ...JSON_OUT, "--comments": f, "-c": f }, positional: { max: 1, ok: any } },
+  checks: { flags: { ...REPO, ...JSON_OUT, "--required": f }, positional: { max: 1, ok: any } },
+  diff: { flags: { ...REPO, "--name-only": f, "--patch": f, "--color": v }, positional: { max: 1, ok: any } },
+  status: { flags: { ...REPO, ...JSON_OUT }, positional: { max: 0, ok: any } },
+};
+const GH_RUN: Record<string, Rule> = {
+  list: { flags: { ...REPO, ...JSON_OUT, "--limit": v, "-L": v, "--branch": v, "-b": v, "--workflow": v, "-w": v, "--status": v, "-s": v, "--event": v, "-e": v, "--commit": v, "-c": v, "--user": v, "-u": v }, positional: { max: 0, ok: any } },
+  view: { flags: { ...REPO, ...JSON_OUT, "--log": f, "--log-failed": f, "--job": v, "-j": v, "--attempt": v, "-a": v, "--verbose": f, "-v": f }, positional: { max: 1, ok: (t) => /^\d+$/.test(t) } },
+};
+// gh api: GET only. No method override, request fields, input body or headers (those all live in flags not listed here).
+const GH_API: Rule = { flags: { "--paginate": f, "--slurp": f, "--jq": v, "-q": v, "--include": f, "-i": f, "--cache": v }, positional: { max: 1, ok: (t) => /^[A-Za-z0-9_./{}:@%?=,+-]+$/.test(t) && !t.startsWith("-") && t !== "graphql" } };
+
+const PATHS = (t: string) => !t.startsWith("-");
+const GIT: Record<string, Rule> = {
+  status: { flags: { "-s": f, "--short": f, "--porcelain": f, "-b": f, "--branch": f }, positional: { max: 20, ok: PATHS } },
+  log: { flags: { "--oneline": f, "--graph": f, "--decorate": f, "--stat": f, "--name-only": f, "--no-merges": f, "--first-parent": f, "-n": v, "--max-count": v, "--format": v, "--pretty": v, "--since": v, "--until": v, "--author": v }, positional: { max: 20, ok: PATHS } },
+  diff: { flags: { "--stat": f, "--shortstat": f, "--numstat": f, "--name-only": f, "--name-status": f, "--cached": f, "--staged": f }, positional: { max: 20, ok: PATHS } },
+  show: { flags: { "--stat": f, "--name-only": f, "--name-status": f, "--oneline": f, "--format": v, "--pretty": v }, positional: { max: 20, ok: PATHS } },
+  // No refspec with a destination (`a:b` writes a local ref) and no forced update (`+`).
+  fetch: { flags: { "--prune": f, "--all": f, "--quiet": f, "-q": f }, positional: { max: 2, ok: (t) => !t.startsWith("-") && !t.startsWith("+") && !t.includes(":") } },
+  "rev-parse": { flags: { "--abbrev-ref": f, "--show-toplevel": f, "--short": f, "--verify": f, "--git-dir": f }, positional: { max: 5, ok: PATHS } },
+  // Listing only: any other flag (-d, -D, -m, -c ...) or a name (which would create a branch) is refused.
+  branch: { flags: { "-a": f, "--all": f, "-r": f, "--remotes": f, "-v": f, "-vv": f, "--list": f, "--show-current": f }, positional: { max: 0, ok: any } },
+};
+
+/** Split into words, honouring simple '...' and "..." quoting. Null when quotes do not balance. */
+function words(command: string): string[] | null {
+  const tokens = command.match(/(?:"[^"]*"|'[^']*'|[^\s"'])+/g) ?? [];
+  if (tokens.join("").length !== command.replace(/\s+/g, "").length) return null;
+  return tokens.map((t) => t.replace(/["']/g, ""));
+}
+
+/** Whether every argument fits the rule (a lone `--` ends the flags; later words are positional). */
+function fits(args: readonly string[], rule: Rule): boolean {
+  let positional = 0, flagsDone = false;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!;
+    if (!flagsDone && a === "--") { flagsDone = true; continue; }
+    if (!flagsDone && a.startsWith("-")) {
+      if (/^-\d+$/.test(a) && rule.flags["-n"]) continue; // git log -5
+      const [name, inline] = a.includes("=") && a.startsWith("--") ? [a.slice(0, a.indexOf("=")), true] : [a, false];
+      const kind = rule.flags[name];
+      if (!kind) return false;
+      if (kind === "flag" && inline) return false;
+      if (kind === "value" && !inline) { if (i + 1 >= args.length) return false; i++; }
+      continue;
+    }
+    if (++positional > rule.positional.max || !rule.positional.ok(a)) return false;
+  }
+  return true;
+}
 
 /** Whether a PR manager may run this shell command without asking: a single read of GitHub or git state. */
 export function isReadOnlyPrCommand(command: string): boolean {
   const c = command.trim();
   if (!c || SHELL_META.test(c)) return false;
-  if (!READ_ONLY_PR_COMMANDS.some((pattern) => pattern.test(c))) return false;
-  if (/\s(--web|-w)(\s|$)/.test(c)) return false; // opens a browser
-  // gh api must stay a GET: no method override or request body.
-  if (/^gh\s+api/.test(c) && /\s(-X|--method|-f|-F|--field|--raw-field|--input)(\s|=|$)/.test(c)) return false;
-  return true;
+  const w = words(c);
+  if (!w || w.length < 2) return false;
+  if (w[0] === "gh") {
+    let rest = w.slice(1);
+    let repo: string[] = [];
+    if (rest[0] === "-R" || rest[0] === "--repo") { repo = rest.slice(0, 2); rest = rest.slice(2); if (repo.length < 2 || repo[1]!.startsWith("-")) return false; }
+    const [group, sub, ...args] = rest;
+    if (group === "api") return !repo.length && sub !== undefined && fits([sub, ...args], GH_API) && GH_API.positional.ok(sub);
+    const rule = group === "pr" ? GH_PR[sub ?? ""] : group === "run" ? GH_RUN[sub ?? ""] : undefined;
+    return Boolean(rule) && fits(args, rule!);
+  }
+  if (w[0] === "git" && w[1] === "-C" && w[2] && !w[2].startsWith("-")) {
+    const [sub, ...args] = w.slice(3);
+    if (sub === "remote") return args.length === 1 && args[0] === "-v";
+    const rule = GIT[sub ?? ""];
+    return Boolean(rule) && fits(args, rule!);
+  }
+  return false;
 }
 
 /**

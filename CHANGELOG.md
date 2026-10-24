@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.0-alpha.23 — 2026-10-24
+- Security (registry review): the PR manager's automatic approval of read-only `gh`/`git` commands now checks every argument against an allowlist per subcommand instead of blocking known flags. `gh api … -XDELETE`, `git branch -D`, method-override headers, GraphQL, output-writing and ref-writing forms stay pending for the user.
+
 ## 0.1.0-alpha.22 — 2026-10-23
 - Command: a **Running** section under Needs attention lists every agent working now (project / workspace, model, last activity; "also needs you" when it is also waiting on you). Tap to open.
 

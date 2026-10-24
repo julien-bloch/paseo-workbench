@@ -350,3 +350,21 @@ test('questions keep each option\'s full information (description, preview)',()=
   const [q]=parseQuestions({questions:[{question:'Which plan?',header:'Plan',multiSelect:false,options:[{label:'A',description:'Fast, but skips the cache.',preview:'step 1\nstep 2'},{label:'B'}]}]});
   assert.deepEqual(q.options,[{label:'A',description:'Fast, but skips the cache.',preview:'step 1\nstep 2'},{label:'B'}]);
 });
+
+test('PR manager read-only filter: every argument is allowlisted (registry review #1035)',()=>{
+  const ok=['gh pr view 12 -R o/r --json title,author,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,reviews,comments,updatedAt','gh pr list -R o/r --state=open --limit 20',
+    'gh run list -R o/r --branch main -L 5','gh api repos/o/r/pulls/3/reviews --paginate --jq .[].state','gh api "repos/o/r/pulls?per_page=100"','git -C /src/app diff --stat HEAD~1 -- src',
+    'git -C /src/app branch -vv','git -C /src/app branch --show-current','git -C /src/app fetch origin','git -C /src/app fetch --prune','git -C /src/app remote -v','git -C /src/app rev-parse --abbrev-ref HEAD','git -C /src/app show --stat abc123'];
+  for (const c of ok) assert.equal(isReadOnlyPrCommand(c),true,c);
+  const bad=[
+    // The two shapes from the review.
+    'gh api repos/OWNER/REPO/issues/comments/COMMENT_ID -XDELETE','git -C /path/to/repository branch -D topic',
+    // Other ways around a blocklist.
+    'gh api repos/o/r/issues/1 -X=DELETE','gh api repos/o/r/issues/1 --method=PATCH','gh api repos/o/r/issues/1 -H "X-HTTP-Method-Override: DELETE"','gh api graphql',
+    'gh api repos/o/r/issues --input body.json','gh api repos/o/r/issues -fbody=x','gh -R o/r api repos/o/r','gh pr list -L5','gh pr view 3 -w','gh pr close 3','gh pr view 3 --comments=1',
+    'gh run rerun 9 -R o/r','gh run view abc -R o/r','git -C /src branch topic','git -C /src branch -d topic','git -C /src branch -m a b','git -C /src branch --delete topic',
+    'git -C /src log --output=/tmp/x','git -C /src diff --no-index /etc/passwd /tmp/x','git -C /src diff --ext-diff','git -C /src fetch origin +main:main','git -C /src fetch origin pull/1/head:pr-1',
+    'git -C /src -c core.pager=sh log','git -C -x status','git -C /src remote add evil url','git -C /src remote -v x','git -C /src status "unbalanced','GIT_DIR=/x git -C /src status','git -C /src checkout main',
+  ];
+  for (const c of bad) assert.equal(isReadOnlyPrCommand(c),false,c);
+});
