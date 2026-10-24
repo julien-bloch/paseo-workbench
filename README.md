@@ -122,7 +122,7 @@ Coordinators need the host's agent tools (Paseo's default). Everything else Work
 
 - Settings (profiles, Coordinators, default model) live in this host's Paseo plugin settings and are saved with conflict protection: a save over another device's newer change is refused, and your draft is kept. Use **Settings > Export** to copy them before uninstalling. Project notes from earlier versions are kept there, unused.
 - Each Coordinator's `CONTEXT.md` holds its assignment, project and workspace names, workspace and agent IDs, and agent titles/statuses, written only on Create or Refresh.
-- The overview polls Paseo metadata every 15 seconds while visible. It never calls a model.
+- While Workbench is open it follows Paseo's agent updates live and re-reads metadata every 15 seconds; the sidebar badge does the same. It never calls a model.
 - **Create**, **Refresh context** and **Launch** spend tokens when clicked. A second opinion or committee adds the second model's time and tokens; a committee runs three rounds (review, cross-check, consensus).
 - **Coordinators keep spending after you click**: they start and message agents on their own. Archive a Coordinator in Paseo to stop it.
 - **Schedules spend on their cadence** until you pause or delete them under **Schedules**. Deleting a coordinator's agent does not delete its check-ins; remove them there.
