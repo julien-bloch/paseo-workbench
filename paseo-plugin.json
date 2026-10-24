@@ -1,6 +1,14 @@
 {
   "id": "workbench",
   "name": "Workbench",
-  "description": "A lightweight project overview, persistent coordinator, configurable specialists, and unified agent activity for Paseo.",
-  "requirements": { "paseo": ">=0.12.0" }
+  "description": "Coordinators, specialists and a command view over your Paseo agents.",
+  "requirements": {
+    "paseo": ">=0.12.0"
+  },
+  "media": [
+    "docs/screenshots/command.png",
+    "docs/screenshots/launch.png",
+    "docs/screenshots/overview.png",
+    "docs/screenshots/phone-command.png"
+  ]
 }

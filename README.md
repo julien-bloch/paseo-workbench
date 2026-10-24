@@ -1,6 +1,6 @@
 # Workbench for Paseo
 
-**Status: 0.1.0-alpha.23. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
+**Status: 0.1.0-alpha.24. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
 
 Workbench adds a cross-project overview, Coordinators that orchestrate agents, and independent reusable specialist agents (with an opt-in second opinion) to Paseo. It uses native Paseo agents, workspaces, agent labels, plugin settings, and the existing mobile-compatible plugin UI. It does not replace Claude Code's own delegation, create a mission engine, or change Paseo's core.
 
