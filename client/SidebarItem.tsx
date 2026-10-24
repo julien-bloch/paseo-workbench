@@ -5,15 +5,14 @@ import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { groupProjects, sidebarCounts } from "../shared/model";
 import { isCoordinatorHome } from "../shared/settings";
-import { directoryForHost } from "./directory";
+import { directoryForHost, watchAgents } from "./directory";
 
-/** This host's counts, refreshed every 30 seconds and shortly after any agent update. Null until read (or unreadable). */
+/** This host's counts, refreshed about a second after any agent changes, and every 15 seconds. Null until read (or unreadable). */
 function useCounts(serverId: string) {
   const paseo = usePaseo();
   const [counts, setCounts] = useState<{ attention: number; running: number } | null>(null);
   useEffect(() => {
     let alive = true;
-    let soon: ReturnType<typeof setTimeout> | undefined;
     const load = async () => {
       try {
         const dir = await directoryForHost(paseo, serverId);
@@ -21,9 +20,9 @@ function useCounts(serverId: string) {
       } catch { if (alive) setCounts(null); }
     };
     void load();
-    const poll = setInterval(() => void load(), 30_000);
-    const off = paseo.agents.subscribe(() => { if (soon) clearTimeout(soon); soon = setTimeout(() => void load(), 2_000); });
-    return () => { alive = false; clearInterval(poll); if (soon) clearTimeout(soon); off(); };
+    const poll = setInterval(() => void load(), 15_000);
+    const unwatch = watchAgents(paseo, () => void load());
+    return () => { alive = false; clearInterval(poll); unwatch(); };
   }, [serverId]);
   return counts;
 }

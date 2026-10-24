@@ -36,4 +36,4 @@ Workbench brings agent activity, coordinator conversations and specialist launch
 ## Limitations
 
 - Coordinators act only through their own host's agent tools. A coordinator's project assignment guides it; it does not isolate files.
-- Directory views refresh every 15 seconds. Provider-native subagents appear only while the view is open and their events are observed.
+- Agent lists update live as agents change (with a 15-second refresh as a fallback). Provider-native subagents appear only while the view is open and their events are observed.

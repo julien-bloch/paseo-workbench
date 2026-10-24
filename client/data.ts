@@ -1,7 +1,7 @@
 import { getPaseoClient, useHosts } from "@getpaseo/plugin/client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { hostGaps, type NativeSubagent, type WorkbenchAgent, type WorkbenchWorkspace } from "../shared/model";
-import { applyNativeUpdate, directoryForHost } from "./directory";
+import { applyNativeUpdate, directoryForHost, watchAgents } from "./directory";
 
 export interface HostEntry { serverId:string; label:string; status:"online"|"offline"|"idle"|"connecting"|"error"; }
 export interface Directory {
@@ -26,7 +26,7 @@ export function knownHostList(home:{id:string;label:string}, reported:readonly H
   return [...entries.values()];
 }
 
-/** Polling is an MVP reliability trade-off: no persistent background watchers or hidden model calls. */
+/** Live agent updates while shown (see watchAgents), with a 15-second refresh as the fallback. No hidden model calls. */
 export function useDirectory(home:{id:string;label:string}) {
   const hostSnapshots=useHosts();
   const hosts=useMemo(()=>knownHostList(home,hostSnapshots),[home.id,home.label,hostSnapshots]);
@@ -63,7 +63,9 @@ export function useDirectory(home:{id:string;label:string}) {
     setLoading(true);
     void refresh().finally(()=>{if(alive)setLoading(false)});
     const timer=setInterval(()=>void refresh().catch(()=>undefined),15_000);
-    return()=>{alive=false;refreshSequence.current++;clearInterval(timer)};
+    // Live: refresh about a second after any agent changes on an online host; the 15-second refresh is the fallback.
+    const unwatch=hostsRef.current.filter(h=>h.status==="online").map(h=>watchAgents(getPaseoClient(h.serverId),()=>void refresh().catch(()=>undefined)));
+    return()=>{alive=false;refreshSequence.current++;clearInterval(timer);for(const off of unwatch)off();};
   },[refresh,hostSignature]);
 
   // Only events observed after subscription are available. The official SDK has no public list API.

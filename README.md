@@ -1,6 +1,6 @@
 # Workbench for Paseo
 
-**Status: 0.1.0-alpha.24. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
+**Status: 0.1.0-alpha.25. Validated against installed Paseo 0.12.0 on a disposable daemon (see [docs/TEST_REPORT.md](docs/TEST_REPORT.md)). Not yet run inside the native mobile app.**
 
 Workbench adds a cross-project overview, Coordinators that orchestrate agents, and independent reusable specialist agents (with an opt-in second opinion) to Paseo. It uses native Paseo agents, workspaces, agent labels, plugin settings, and the existing mobile-compatible plugin UI. It does not replace Claude Code's own delegation, create a mission engine, or change Paseo's core.
 
@@ -20,7 +20,7 @@ Workbench adds a cross-project overview, Coordinators that orchestrate agents, a
 
 ## What it does
 
-- **Sidebar badge**: beside Workbench in Paseo's sidebar, an amber count of agents that need you and a ▶ count of agents working (this host; refreshed every 30 seconds and after agent updates).
+- **Sidebar badge**: beside Workbench in Paseo's sidebar, an amber count of agents that need you and a ▶ count of agents working (this host; updates live as agents change).
 - **Workbench sidebar screen** with four tabs: **Command** (what needs you, then coordinators and their chat; opens first), **Launch** (start anything), **Overview** (every agent by who started what; tap any row to open it), **Settings**.
 - **Launch**: one form. **What**: a specialist (Coordinator, Reviewer, Experiment reviewer, Debugger, Session summarizer, PR manager, or your own). **Where it runs**: **In a workspace** (one task in a workspace you pick, then it stops) or **Across projects** (runs as a coordinator over the projects you choose, starting and managing agents with that specialist's expertise). The **Coordinator** always runs as a coordinator, in either place: for one workspace, or across projects. **When**: **One time** or **Scheduled** (see Schedules). Then its details and one launch button.
 - **Schedules** (Paseo's own scheduler): a scheduled specialist **in a workspace** is a Paseo schedule that starts a new agent there at each run (hourly, weekdays, daily, weekly or a custom cron, in your time zone). Scheduled **across projects** launches the coordinator now and adds a recurring **check-in** message to it (a Paseo heartbeat). Both are listed under **Schedules** on the Launch tab, where workspace schedules can be paused, resumed or deleted and check-ins removed. Scheduled runs are single reviews; a read-only Codex specialist cannot be scheduled (the scheduler cannot request Codex's sandbox), a read-only Claude one runs in `plan` mode.
@@ -156,7 +156,6 @@ paseo daemon stop --home /tmp/wb-dev/home
 - **Schedules use the `paseo` CLI** from the plugin server (the plugin SDK has no schedule API): `PASEO_CLI`, else the macOS app's bundled CLI, else `paseo` on `PATH`. Check-ins (Paseo heartbeats) cannot be listed by the CLI, so Workbench lists the ones it created; it cannot pause them, only remove them. Schedules created on one host are listed only when that host is selected.
 - **Taking over agents also uses the CLI** (`paseo agent update --label`, `paseo agent detach`): the SDK cannot change an existing agent's labels.
 
-- **The Command tree can lag the chat by up to 15 seconds**: the chat follows Paseo live, the tree comes from the directory poll.
 - **Your Claude Code always-allow rules apply to Workbench's Claude agents too.** Commands you set to always-allow (for example `Bash(gh pr:*)` or `Bash(uv run:*)` in `~/.claude/settings.json`) run without asking even in plan mode, so a "read-only" Reviewer is read-only only for commands outside those rules. The PR manager additionally denies `gh pr merge` and `git push` for itself.
 - **Native mobile app not tested.** UI was verified in Paseo 0.12's web build at desktop and iPhone viewports, not in the iOS/Android app or the Electron shell.
 - **Codex read-only is requested, not verified per launch.** Tested once against a writable control on 0.12; Paseo cannot confirm it for each agent.
@@ -165,7 +164,7 @@ paseo daemon stop --home /tmp/wb-dev/home
 - **Second-opinion delivery** happens in the plugin's server process. Pairs and delivered reports are persisted, so a restart neither loses nor repeats a report, but a report that finished while the plugin was stopped is forwarded at the next agent turn end on the host. The second opinion is always readable directly as the main reviewer's child.
 - **Plan mode is approval-gated, not absolute:** approving a write permission, or "Implement", lets the Reviewer edit.
 - **Native subagents are live-only.** Children that started or finished before the Overview tab opened are missing. Proposal: [docs/NATIVE_SUBAGENT_SDK_PROPOSAL.md](docs/NATIVE_SUBAGENT_SDK_PROPOSAL.md).
-- Polling every 15 seconds rather than owned subscriptions (WB-009).
+- Live updates rely on Paseo's agent subscription; if it drops, Workbench falls back to refreshing every 15 seconds.
 - Settings are one document per host, so saving one profile while another device saved a different one asks you to save again (no data lost).
 - Profiles and the default model live on the plugin's host. A specialist launched on another host uses that host's provider, and a missing model there fails at launch.
 - If two devices create the same Coordinator at the same moment with *different* settings, and the user clicks **Start a new one** before the other creation finishes, two agents for it can exist. Archive one.

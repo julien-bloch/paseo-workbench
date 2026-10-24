@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.0-alpha.25 — 2026-10-24
+- Needs attention, Running, Overview and the sidebar badge update live: Workbench now opens Paseo's agent subscription and refreshes about a second after any agent changes (measured: a new permission request showed within 0.4 s). The 15-second refresh remains as a fallback; the sidebar badge, which never actually received live updates before, now does.
+
 ## 0.1.0-alpha.24 — 2026-10-24
 - `OVERVIEW.md` for the Paseo plugin registry listing (setup, what it does, data and storage, permissions and costs, limitations).
 - Manifest lists the screenshots as `media` and has a current one-sentence description.

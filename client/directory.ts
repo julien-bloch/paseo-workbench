@@ -66,3 +66,23 @@ export function applyNativeUpdate(list:readonly NativeSubagent[],serverId:string
   };
   return [...list.filter(s=>!same(s,item.parentAgentId,item.id)),item];
 }
+
+/**
+ * Calls `onChange` soon after any agent on this host changes (status, permission request, title...), at most once per
+ * `everyMs`. Paseo streams agent updates only while an agent-list subscription is open, so this opens one and
+ * releases it on cleanup. Returns the cleanup.
+ */
+export function watchAgents(paseo:PaseoApi,onChange:()=>void,everyMs=1000):()=>void {
+  let alive=true,last=0;
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  let subscription:{release:()=>Promise<void>}|undefined;
+  const changed=()=>{
+    if(!alive||timer)return;
+    timer=setTimeout(()=>{timer=undefined;last=Date.now();if(alive)onChange();},Math.max(250,last+everyMs-Date.now()));
+  };
+  const off=paseo.agents.subscribe(changed);
+  paseo.agents.list({subscribe:{},page:{limit:1}})
+    .then(r=>{if(alive)subscription=r.subscription;else void r.subscription.release().catch(()=>undefined);})
+    .catch(()=>undefined); // live updates are a bonus: the periodic refresh still runs
+  return()=>{alive=false;off();if(timer)clearTimeout(timer);void subscription?.release().catch(()=>undefined);};
+}
