@@ -42,6 +42,7 @@ export function Worktrees({ theme, version }: { theme: PluginTheme; version: num
         {[w.running ? `${w.running} working` : w.agents ? `${w.agents} idle agent${w.agents === 1 ? "" : "s"}` : "no agents", w.activityAt ? `active ${ago(w.activityAt, now)}` : null, w.prReview ? "Workbench PR review" : null].filter(Boolean).join(" · ")}
       </Text>
       {w.dirty ? <Text style={{ color: theme.colors.statusWarning, fontSize: 11, fontWeight: "600" }}>Uncommitted changes: removing it discards them.</Text> : null}
+      {w.ignored.length ? <Text style={{ color: theme.colors.statusWarning, fontSize: 11 }}>Ignored files removing it deletes too: {w.ignored.slice(0, 6).join(", ")}{w.ignored.length > 6 ? ` and ${w.ignored.length - 6} more` : ""}</Text> : null}
       <Wrap>
         <Button theme={theme} subtle disabled={w.running > 0 || busy === w.workspaceId}
           label={confirm === w.workspaceId ? (w.dirty ? "Confirm: discard changes and remove" : w.agents ? `Confirm: remove and archive its ${w.agents} agent${w.agents === 1 ? "" : "s"}` : "Confirm: remove") : "Remove"}

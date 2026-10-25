@@ -88,7 +88,8 @@ export function promptInput(input:{helper:Specialist;settings:Preferences;projec
 export async function sessionTranscript(paseo:PaseoApi,agentId:string):Promise<{agentId:string;title:string;transcript:string}> {
   const page=await paseo.agents.ref(agentId).timeline.refetch({direction:"tail",limit:1000});
   const items=page.entries.map(e=>((e as {item?:{type:string}}).item??e) as {type:string});
-  return {agentId,title:page.agent?.title||agentId,transcript:transcriptText(transcriptRows(items))};
+  const older=page.hasOlder?"(earlier part omitted: only the latest 1000 timeline entries were read)\n":"";
+  return {agentId,title:page.agent?.title||agentId,transcript:older+transcriptText(transcriptRows(items))};
 }
 
 export async function createSpecialist(input:{

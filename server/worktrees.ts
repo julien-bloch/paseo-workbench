@@ -1,9 +1,6 @@
 import { execFile } from "node:child_process";
 import type { PaseoAgent, PaseoApi, PaseoWorkspace } from "@getpaseo/client";
-import type { WorktreeRow } from "../shared/rpc";
-
-/** The title Workbench gives the worktree it opens for a pull request review (client/actions.ts). */
-export const PR_REVIEW_TITLE = /^PR #\d+ review$/;
+import { PR_REVIEW_TITLE, type WorktreeRow } from "../shared/rpc";
 
 async function all<T>(page: (cursor?: string) => Promise<{ entries: T[]; pageInfo: { hasMore: boolean; nextCursor?: string | null } }>): Promise<T[]> {
   const items: T[] = [];
@@ -19,10 +16,15 @@ async function all<T>(page: (cursor?: string) => Promise<{ entries: T[]; pageInf
 const workspaces = (paseo: PaseoApi) => all<PaseoWorkspace>((cursor) => paseo.workspaces.list({ page: { limit: 200, ...(cursor ? { cursor } : {}) } }));
 const agents = async (paseo: PaseoApi) => (await all<{ agent: PaseoAgent }>((cursor) => paseo.agents.list({ page: { limit: 200, ...(cursor ? { cursor } : {}) } }))).map((e) => e.agent);
 
-/** Uncommitted or untracked changes. If git cannot tell, assume there are some. */
-function dirty(directory: string): Promise<boolean> {
-  return new Promise((resolve) => execFile("git", ["-C", directory, "status", "--porcelain"], { timeout: 15_000 }, (error, stdout) => resolve(Boolean(error) || stdout.trim().length > 0)));
+/** Uncommitted or untracked changes (if git cannot tell, assume there are some), and the ignored paths a removal also deletes. */
+function changes(directory: string): Promise<{ dirty: boolean; ignored: string[] }> {
+  return new Promise((resolve) => execFile("git", ["-C", directory, "status", "--porcelain", "--ignored"], { timeout: 15_000 }, (error, stdout) => {
+    if (error) { resolve({ dirty: true, ignored: [] }); return; }
+    const lines = stdout.split("\n").filter(Boolean);
+    resolve({ dirty: lines.some((l) => !l.startsWith("!! ")), ignored: lines.filter((l) => l.startsWith("!! ")).map((l) => l.slice(3)) });
+  }));
 }
+const dirty = async (directory: string) => (await changes(directory)).dirty;
 
 export async function listWorkbenchWorktrees(paseo: PaseoApi): Promise<{ worktrees: WorktreeRow[] }> {
   const [ws, live] = await Promise.all([workspaces(paseo), agents(paseo)]);
@@ -32,7 +34,7 @@ export async function listWorkbenchWorktrees(paseo: PaseoApi): Promise<{ worktre
     return {
       workspaceId: w.id, name: w.title || w.name, project: w.projectDisplayName, directory: w.workspaceDirectory!, status: w.status, activityAt: w.activityAt,
       agents: mine.length, running: mine.filter((a) => a.status === "running" || a.status === "initializing").length,
-      dirty: await dirty(w.workspaceDirectory!), prReview: PR_REVIEW_TITLE.test(w.title ?? ""),
+      ...await changes(w.workspaceDirectory!), prReview: PR_REVIEW_TITLE.test(w.title ?? ""),
     };
   })) };
 }

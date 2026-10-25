@@ -100,10 +100,14 @@ export const worktreeRow = z.object({
   agents: z.number(), running: z.number(),
   /** Uncommitted or untracked changes; true also when git could not tell. */
   dirty: z.boolean(),
+  /** Gitignored paths (directories collapsed) that removing the folder deletes too: a warning, not a block. */
+  ignored: z.array(z.string()),
   /** A "PR #n review" worktree Workbench opened. */
   prReview: z.boolean(),
 });
 export type WorktreeRow = z.infer<typeof worktreeRow>;
+/** The title Workbench gives the worktree it opens for a pull request review (client/actions.ts). */
+export const PR_REVIEW_TITLE = /^PR #\d+ review$/;
 export const listWorktrees = defineRpc({ name: "workbench.worktrees", input: z.object({}), output: z.object({ worktrees: z.array(worktreeRow) }) });
 
 /**

@@ -149,6 +149,7 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
 
       {asCoordinator && profile ? <>
         <Notice theme={theme} kind="error" text="Coordinators act on their own: they may start, message and stop agents in their projects, which spends tokens without asking you. They never commit, push, merge, deploy, or approve another agent's permission request without you." />
+        {profile.requireReadOnly && !ownCoordinatorInstructions(profile) ? <Notice theme={theme} kind="error" text={`NOT read-only: ${profile.name}'s enforced read-only applies in a workspace only. As a coordinator it runs in auto mode and may start agents that edit files; its instructions still ask for read-only work.`} /> : null}
         {coordinators.tools === false ? <Notice theme={theme} kind="error" text="Agent tools are off on this host (daemon setting mcp.injectIntoAgents), so coordinators can plan but cannot start or message agents. Workbench does not change this setting." /> : null}
         <Field theme={theme} label="Name" value={name} onChangeText={setName} placeholder={ownCoordinatorInstructions(profile) ? profile.name : `${profile.name} coordinator`} />
         {scope === "projects" ? <>

@@ -16,7 +16,7 @@ import { Button, Choice, Field, Notice, Section, Wrap } from "./ui";
 import { SettingsEditor } from "./SettingsEditor";
 import { Worktrees } from "./Worktrees";
 import { useRpc } from "@getpaseo/plugin/client";
-import { removeWorktree } from "../shared/rpc";
+import { PR_REVIEW_TITLE, removeWorktree } from "../shared/rpc";
 import { useFolderSpecialists } from "./folder";
 import { importSpecialists, mergeSpecialists } from "../shared/specialistFiles";
 
@@ -88,14 +88,20 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
     const failed:string[]=[];
     for(const t of ids){try{await getPaseoClient(t.serverId).agents.ref(t.agentId).archive()}catch(e){failed.push(e instanceof Error?e.message:String(e))}}
     // A Workbench PR-review worktree whose last agent was just archived goes too, if nothing uncommitted would be lost.
-    const trees=[...new Set(ids.map(t=>directory.agents.find(a=>a.serverId===t.serverId&&a.agentId===t.agentId)?.workspaceId).filter((w):w is string=>Boolean(w)))];
-    const kept:string[]=[];let removed=0;
-    for(const workspaceId of trees){
-      const r=await removeTree({workspaceId,mode:"if-unused-pr-review"}).catch(()=>null);
-      if(r?.removed)removed++;else if(r?.reason==="it has uncommitted changes")kept.push(workspaceId);
+    // Only this host's plugin can remove worktrees, so another host's PR-review worktrees are named, not removed.
+    const workspaceIds=new Set(ids.map(t=>directory.agents.find(a=>a.serverId===t.serverId&&a.agentId===t.agentId)?.workspaceId).filter((w):w is string=>Boolean(w)));
+    const trees=directory.workspaces.filter(w=>workspaceIds.has(w.workspaceId));
+    const kept:string[]=[],elsewhere:string[]=[],errors:string[]=[];let removed=0;
+    for(const w of trees){
+      if(w.serverId!==host.id){if(PR_REVIEW_TITLE.test(w.name))elsewhere.push(`${w.name} (${hostLabel(w.serverId)})`);continue;}
+      try{
+        const r=await removeTree({workspaceId:w.workspaceId,mode:"if-unused-pr-review"});
+        if(r.removed)removed++;else if(r.reason==="it has uncommitted changes")kept.push(w.workspaceId);
+      }catch(e){errors.push(e instanceof Error?e.message:String(e))}
     }
-    const extra=(removed?` Removed ${removed} PR-review worktree${removed===1?"":"s"}.`:"")+(kept.length?` Kept ${kept.length} PR-review worktree${kept.length===1?"":"s"} with uncommitted changes (see Worktrees).`:"");
-    setMessage(failed.length?{kind:"error",text:`Archived ${ids.length-failed.length} of ${ids.length}: ${failed[0]}`}:{kind:"success",text:`Archived ${ids.length} agent${ids.length===1?"":"s"}. They stay in Paseo's history.${extra}`});
+    const extra=(removed?` Removed ${removed} PR-review worktree${removed===1?"":"s"}.`:"")+(kept.length?` Kept ${kept.length} PR-review worktree${kept.length===1?"":"s"} with uncommitted changes (see Worktrees).`:"")
+      +(elsewhere.length?` Not removed, on another host (remove them from Workbench there): ${elsewhere.join(", ")}.`:"")+(errors.length?` Worktree cleanup failed: ${errors[0]}`:"");
+    setMessage(failed.length?{kind:"error",text:`Archived ${ids.length-failed.length} of ${ids.length}: ${failed[0]}`}:{kind:errors.length?"error":"success",text:`Archived ${ids.length} agent${ids.length===1?"":"s"}. They stay in Paseo's history.${extra}`});
     setWorktreesVersion(v=>v+1);
     await directory.refresh();
   }

@@ -100,7 +100,7 @@ export const ownCoordinatorInstructions = (profile: { id: string; coordinatorOnl
 export function coordinatorInstructionsFor(profile: { id: string; instructions: string; coordinatorOnly: boolean; skills?: string[] }): string {
   const skills = profile.skills?.length ? `\n\n${skillsText(profile.skills)}` : "";
   return (ownCoordinatorInstructions(profile) ? profile.instructions
-    : `${COORDINATOR_INSTRUCTIONS}\n\nYour specialty, which you apply yourself and through the agents you start:\n${profile.instructions}`) + skills;
+    : `${COORDINATOR_INSTRUCTIONS}\n\nYour specialty, which you apply yourself and through the agents you start. Its limits (for example not editing files) apply to that work and to the agents you start for it; a line saying not to start agents does not stop you from starting and managing them as a coordinator:\n${profile.instructions}`) + skills;
 }
 
 export const preferences = defineSettings({
