@@ -1,4 +1,4 @@
-Workbench brings agent activity, coordinator conversations and specialist launches into one Paseo screen. **Command** shows what needs you and what is running, and lets you chat with coordinators; **Launch** starts specialists and coordinators; **Overview** follows agent teams and manages worktrees. A badge beside Workbench in the sidebar counts agents that need you and agents that are working.
+Workbench brings agent activity, coordinator conversations and specialist launches into one Paseo screen. **Command** shows what needs you, what is running and what just finished, and lets you chat with coordinators; **Launch** starts specialists and coordinators; **Overview** follows agent teams and manages worktrees. A badge beside Workbench in the sidebar counts agents that need you and agents that are working.
 
 ## Setup
 

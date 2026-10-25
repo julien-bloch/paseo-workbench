@@ -7,7 +7,7 @@ export function AttentionList({ theme, groups, hostSuffix, openAgent }: {
   theme: PluginTheme; groups: readonly AttentionGroup[]; hostSuffix: (serverId: string | null) => string; openAgent: (agentId: string, serverId: string) => void;
 }) {
   const now = Date.now();
-  const color = { permission: theme.colors.statusWarning, error: theme.colors.statusDanger, finished: theme.colors.foregroundMuted, attention: theme.colors.statusWarning };
+  const color = { permission: theme.colors.statusWarning, error: theme.colors.statusDanger };
   let shown = 0;
   return <View style={{ gap: 10 }}>
     {groups.map((group) => {

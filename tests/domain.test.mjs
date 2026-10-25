@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupProjects, hierarchyRows, projectKey, isAttention, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, withTeam, finishedSpecialists, sidebarCounts, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
+import { groupProjects, hierarchyRows, projectKey, isAttention, isReadyToReview, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, withTeam, finishedSpecialists, sidebarCounts, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
 import { planLaunchMode, escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from '../.unit-dist/permissions.js';
 import { transcriptRows, transcriptText } from '../.unit-dist/transcript.js';
 import { parseQuestions, buildAnswers, toggleChoice } from '../.unit-dist/questions.js';
@@ -22,8 +22,10 @@ test('keeps work on separate hosts distinct even with matching project ids',()=>
   assert.equal(projects.length,2);
 });
 
-test('attention includes explicit flag, permissions and failures',()=>{
+test('attention is permissions and failures, not finished',()=>{
   assert.equal(isAttention(ag('a')),false);
+  assert.equal(isAttention({...ag('a'),requiresAttention:true,attentionReason:'finished'}),false);
+  assert.equal(isAttention({...ag('a'),requiresAttention:true,attentionReason:'permission'}),true);
   assert.equal(isAttention({...ag('a'),pendingPermissionCount:1}),true);
   assert.equal(isAttention({...ag('a'),status:'error'}),true);
 });
@@ -153,12 +155,30 @@ test('attention groups: by project, blocked-on-you first, with evidence; agents 
   const coordinator={...ag('c',{'workbench.role':'coordinator'},'idle','home-ws'),requiresAttention:true,attentionReason:'finished'};
   const quiet=ag('q');
   const groups=attentionGroups([done,quiet,failed,waiting,coordinator],projects);
-  assert.deepEqual(groups.map(g=>g.name),['XDFlow','Not in a project (Coordinators and others)']);
-  assert.deepEqual(groups[0].items.map(i=>[i.agentId,i.kind]),[['w','permission'],['f','error'],['d','finished']]);
+  const coordinatorAsks={...coordinator,pendingPermissionCount:1,attentionReason:'permission'};
+  assert.deepEqual(attentionGroups([done,quiet,failed,waiting,coordinatorAsks],projects).map(g=>g.name),['XDFlow','Not in a project (Coordinators and others)']);
+  assert.deepEqual(groups.map(g=>g.name),['XDFlow'],'finished agents are listed under Finished, not here');
+  assert.deepEqual(groups[0].items.map(i=>[i.agentId,i.kind]),[['w','permission'],['f','error']]);
   assert.equal(groups[0].items[0].headline,'Waiting for your permission (2)');
   assert.deepEqual(groups[0].items[0].details,['$ git push','edit a.py']);
   assert.deepEqual(groups[0].items[1].details,['Provider quota exceeded']);
   assert.equal(groups[0].items[0].workspaceName,'main');
+});
+
+test('ready to review: exactly Paseo\'s green dot, subagents included',()=>{
+  const done=o=>({...ag('x'),requiresAttention:true,attentionReason:'finished',...o});
+  assert.equal(isReadyToReview(done({})),true);
+  assert.equal(isReadyToReview(done({labels:{'paseo.parent-agent-id':'chair'}})),true,'a committee member or worker counts too');
+  assert.equal(isReadyToReview(done({attentionReason:null})),true,'Paseo shows any other attention as green');
+  assert.equal(isReadyToReview(done({requiresAttention:false})),false,'opened since it finished');
+  assert.equal(isReadyToReview(done({pendingPermissionCount:1})),false);
+  assert.equal(isReadyToReview(done({attentionReason:'permission'})),false);
+  assert.equal(isReadyToReview(done({status:'error'})),false);
+  assert.equal(isReadyToReview(done({attentionReason:'error'})),false);
+  assert.equal(isReadyToReview(done({status:'running'})),false);
+  assert.equal(isReadyToReview(done({archived:true})),false);
+  const projects=groupProjects([ws],[done({}),{...ag('f'),status:'error'}]);
+  assert.equal(projects[0].attention,1,'a project counts only what needs you');
 });
 
 test('committee prompts: chair writes the consensus with divergences, member cross-checks the chair',()=>{
@@ -169,7 +189,7 @@ test('committee prompts: chair writes the consensus with divergences, member cro
   assert.match(member,/member of a two-member review committee/);assert.match(member,/claude\/y/);assert.doesNotMatch(member,/write the committee's consensus/);
 });
 
-test('attention: agents started by another agent only surface permissions and failures, labeled with their parent',()=>{
+test('attention: agents started by another agent surface permissions and failures, labeled with their parent',()=>{
   const projects=groupProjects([ws],[]);
   const chair={...ag('chair'),title:'Reviewer: P'};
   const memberDone={...ag('m1',{'paseo.parent-agent-id':'chair'}),requiresAttention:true,attentionReason:'finished'};
@@ -340,7 +360,7 @@ test('archive: only done, non-coordinator agents; a specialist goes with its rev
 
 test('sidebar counts: attention items like the header, plus agents running or starting',()=>{
   const ag=(id,o={})=>({serverId:'s',agentId:id,workspaceId:'w',title:id,status:'idle',model:'',provider:'',updatedAt:'',labels:{},requiresAttention:false,pendingPermissionCount:0,archived:false,...o});
-  const agents=[ag('ask',{requiresAttention:true,attentionReason:'permission',pendingPermissionCount:1}),ag('run',{status:'running'}),ag('init',{status:'initializing'}),ag('idle')];
+  const agents=[ag('ask',{requiresAttention:true,attentionReason:'permission',pendingPermissionCount:1}),ag('run',{status:'running'}),ag('init',{status:'initializing'}),ag('gone',{status:'running',archived:true}),ag('idle')];
   const projects=groupProjects([{serverId:'s',workspaceId:'w',projectId:'p',projectName:'P',name:'main',directory:'/x',status:'active'}],agents);
   assert.deepEqual(sidebarCounts(agents,projects),{attention:attentionGroups(agents,projects).reduce((n,g)=>n+g.items.length,0),running:2});
   assert.ok(sidebarCounts(agents,projects).attention>=1);
@@ -353,7 +373,7 @@ test('questions keep each option\'s full information (description, preview)',()=
 
 test('PR manager read-only filter: every argument is allowlisted (registry review #1035)',()=>{
   const ok=['gh pr view 12 -R o/r --json title,author,reviewDecision,mergeable,mergeStateStatus,statusCheckRollup,reviews,comments,updatedAt','gh pr list -R o/r --state=open --limit 20',
-    'gh run list -R o/r --branch main -L 5','gh api repos/o/r/pulls/3/reviews --paginate --jq .[].state','gh api "repos/o/r/pulls?per_page=100"','git -C /src/app diff --stat HEAD~1 -- src',
+    'gh run list -R o/r --branch main -L 5','gh api repos/o/r/pulls/3/reviews --paginate --jq \'.[].state\'','gh api repos/{owner}/{repo}/pulls/3/comments','gh api "repos/o/r/pulls?per_page=100"','git -C /src/app diff --stat HEAD~1 -- src',
     'git -C /src/app branch -vv','git -C /src/app branch --show-current','git -C /src/app fetch origin','git -C /src/app fetch --prune','git -C /src/app remote -v','git -C /src/app rev-parse --abbrev-ref HEAD','git -C /src/app show --stat abc123'];
   for (const c of ok) assert.equal(isReadOnlyPrCommand(c),true,c);
   const bad=[
@@ -364,6 +384,8 @@ test('PR manager read-only filter: every argument is allowlisted (registry revie
     'gh api repos/o/r/issues --input body.json','gh api repos/o/r/issues -fbody=x','gh -R o/r api repos/o/r','gh pr list -L5','gh pr view 3 -w','gh pr close 3','gh pr view 3 --comments=1',
     'gh run rerun 9 -R o/r','gh run view abc -R o/r','git -C /src branch topic','git -C /src branch -d topic','git -C /src branch -m a b','git -C /src branch --delete topic',
     'git -C /src log --output=/tmp/x','git -C /src diff --no-index /etc/passwd /tmp/x','git -C /src diff --ext-diff','git -C /src fetch origin +main:main','git -C /src fetch origin pull/1/head:pr-1',
+    // Brace expansion and globs (registry review: one word becomes several).
+    'gh api {-XDELETE,repos/o/r/git/refs/heads/main}','gh api {--method=PUT,repos/o/r/pulls/1/merge}','git -C /repo log {--output=/tmp/pwn,HEAD}','git -C /src diff -- *','gh api repos/o/r/pulls/3/reviews --jq .[].state',
     'git -C /src -c core.pager=sh log','git -C -x status','git -C /src remote add evil url','git -C /src remote -v x','git -C /src status "unbalanced','GIT_DIR=/x git -C /src status','git -C /src checkout main',
   ];
   for (const c of bad) assert.equal(isReadOnlyPrCommand(c),false,c);

@@ -31,12 +31,13 @@ async function checkChosenMode(paseo:PaseoApi,{model,mode}:Planned){
 }
 
 /** Create an agent without a prompt and verify the mode Paseo applied, so no work starts in the wrong mode. */
-async function createVerified(paseo:PaseoApi,workspaceId:string,{model,mode}:Planned,systemPrompt:string,title:string,labels:Record<string,string>){
+async function createVerified(paseo:PaseoApi,workspaceId:string,{model,mode}:Planned,systemPrompt:string,title:string,labels:Record<string,string>,denied?:{disallowedTools:string[]}){
+  const options={...(mode.kind==="sandbox"?mode.options:{}),...denied};
   const agent=await paseo.workspaces.ref(workspaceId).agents.create({
     config:{
       provider:model,systemPrompt,
       ...(mode.kind==="read-only"||mode.kind==="chosen"?{modeId:mode.modeId}:{}),
-      ...(mode.kind==="sandbox"?{options:mode.options}:{}),
+      ...(Object.keys(options).length?{options}:{}),
     },
     // Paseo shows a sandboxed Codex agent as "Default Permissions", so say it in the title it does show.
     title:mode.kind==="sandbox"?`${title} · read-only sandbox`:title,
@@ -127,7 +128,8 @@ export async function createSpecialist(input:{
   // New sessions, no inherited conversation. Parentage is metadata only: Paseo's own parent label, written directly,
   // because the SDK `parent` option (Paseo 0.12) adds nothing else here but fails once the parent is closed.
   const primaryAgent=await createVerified(paseo,workspaceId,primary,helper.instructions,`${helper.name}: ${target}`,
-    {"workbench.role":"helper",[SPECIALIST_LABEL]:helper.id,...(parentAgentId?{[PARENT_AGENT_ID_LABEL]:parentAgentId}:{})});
+    {"workbench.role":"helper",[SPECIALIST_LABEL]:helper.id,...(parentAgentId?{[PARENT_AGENT_ID_LABEL]:parentAgentId}:{})},
+    helper.id==="pr-manager"?prManagerDenied(model):undefined);
   let secondAgent:Awaited<ReturnType<typeof createVerified>>|null=null;
   let secondOpinionError:string|undefined;
   if(second){
@@ -190,19 +192,35 @@ export async function agentToolsEnabled(paseo:PaseoApi):Promise<boolean> {
 export type CoordinatorResult = {kind:"created";agentId:string;archived:boolean} | {kind:"conflict"};
 /**
  * A PR manager never merges or pushes itself (the user chose "fix locally, ask to push"). Claude Code deny rules beat the
- * user's own always-allow rules (e.g. Bash(gh pr:*)), so this holds even where instructions alone would not.
+ * user's own always-allow rules (e.g. Bash(gh pr:*)), so this holds even where instructions alone would not. `*` matches
+ * anywhere (tested on Claude Code 2.1: `git -C <dir> push` and `gh api -X PUT .../merge` denied, reads still run).
+ * Only direct gh/git commands: another program (sh -c, a script) is not covered. Other providers get no deny rules.
  */
-const PR_MANAGER_DENIED = ["Bash(gh pr merge:*)", "Bash(git push:*)"];
+const PR_MANAGER_DENIED = ["Bash(git push*)", "Bash(git * push*)", "Bash(gh pr merge*)", "Bash(gh * pr merge*)", "Bash(gh api *merge*)", "Bash(gh api *git/*)", "Bash(gh api *contents/*)"];
+function prManagerDenied(model:string):{disallowedTools:string[]}|undefined {
+  return providerOf(model)==="claude"?{disallowedTools:PR_MANAGER_DENIED}:undefined;
+}
+
+/** Coordinators start in the provider's auto mode, by choice. Ids by Paseo version: Codex "auto" on 0.12, "auto-review" on 0.13. */
+const COORDINATOR_MODES: Readonly<Record<string, readonly string[]>> = { claude: ["auto"], codex: ["auto-review", "auto"] };
+
+/** The first auto mode the host offers; undefined (the provider's default mode) when it offers none or its catalog is unreadable. */
+async function coordinatorMode(paseo:PaseoApi,model:string):Promise<string|undefined> {
+  const catalog=await paseo.providers.listModes(providerOf(model)).catch(()=>null);
+  const offered=new Set((catalog?.modes??[]).map(m=>m.id));
+  return COORDINATOR_MODES[providerOf(model)]?.find(id=>offered.has(id));
+}
 
 export async function createCoordinator(input:{paseo:PaseoApi;cwd:string;contextFile:string;model:string;coordinatorId:string;name:string;instructions:string;generation:number;kind?:"general"|"pr-manager"}):Promise<CoordinatorResult> {
   const {paseo,cwd,model,coordinatorId,name,instructions,generation}=input;
-  const denied=input.kind==="pr-manager"&&providerOf(model)==="claude"?{options:{disallowedTools:PR_MANAGER_DENIED}}:{};
+  const options=input.kind==="pr-manager"?prManagerDenied(model):undefined;
+  const modeId=await coordinatorMode(paseo,model);
   try{
     const agent=await paseo.agents.create({
       // "default" keeps the pre-0.1.0-alpha.3 key, so a Coordinator created then is still found by it.
       idempotencyKey:coordinatorId==="default"?`workbench.coordinator.${generation}`:`workbench.coordinator.${coordinatorId}.${generation}`,
       cwd,title:name,
-      config:{provider:model,systemPrompt:instructions,...denied},
+      config:{provider:model,systemPrompt:instructions,...(modeId?{modeId}:{}),...(options?{options}:{})},
       labels:{[COORDINATOR_LABEL]:COORDINATOR_VALUE,[COORDINATOR_ID_LABEL]:coordinatorId},
       prompt:coordinatorFirstPrompt(name,input.contextFile),
     });

@@ -3,7 +3,7 @@ import { getPaseoClient, useSettings } from "@getpaseo/plugin/client";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { preferences, isCoordinatorHome, type Preferences } from "../shared/settings";
-import { attentionGroups, attentionHeadline, finishedSpecialists, groupProjects, withTeam } from "../shared/model";
+import { attentionGroups, attentionHeadline, finishedSpecialists, groupProjects, isReadyToReview, isWorking, withTeam } from "../shared/model";
 import { useCoordinators } from "./Coordinators";
 import { LaunchTab } from "./LaunchTab";
 import { AttentionList } from "./AttentionList";
@@ -47,7 +47,8 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
   const attentionByProject=useMemo(()=>attentionGroups(directory.agents,projects),[directory.agents,projects]);
   const attention=attentionByProject.flatMap(g=>g.items);
   const attentionIndex=useMemo(()=>new Map(attention.map(i=>[`${i.serverId}:${i.agentId}`,i])),[attentionByProject]);
-  const running=directory.agents.filter(a=>a.status==="running"||a.status==="initializing");
+  const running=directory.agents.filter(isWorking);
+  const readyToReview=directory.agents.filter(isReadyToReview);
   const unobserved=Object.keys(directory.errors).length;
   const headline=attentionHeadline(attention.length,unobserved,directory.updatedAt!==null);
   // Labels are display-only and can collide (two daemons on one machine); add the server id when they do.
@@ -123,6 +124,9 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
     </Section>:null}
     {tab==="command"?<Section theme={theme} title={`Running (${running.length})`}>
       <RunningList theme={theme} agents={directory.agents} workspaces={directory.workspaces} needsYou={new Set(attentionIndex.keys())} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
+    </Section>:null}
+    {tab==="command"?<Section theme={theme} title={`Finished (${readyToReview.length})`} subtitle="Paseo's green dot: finished since you last opened it. Opening it in Paseo clears it.">
+      <RunningList theme={theme} kind="finished" agents={directory.agents} workspaces={directory.workspaces} needsYou={new Set()} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
     {tab==="command"?<Command host={host} theme={theme} layout={layout} values={values} directory={directory} projects={projects} openAgent={openAgent} onSummarize={summarizeAction}
       coordinators={coordinators} selected={commandSelection} onSelect={setCommandSelection}/>:null}

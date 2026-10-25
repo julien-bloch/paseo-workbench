@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.0-alpha.26 — 2026-10-25
+- Command: a **Finished** section under Running lists every agent Paseo marks with a green dot (finished since you last opened it), subagents nested under the agent that started them; opening one in Paseo clears it. Finished agents are no longer listed under Needs attention or counted in the sidebar's amber badge, which now counts only permissions and failures.
+- "Needs attention" now means exactly Paseo's amber and red dots everywhere: per-project counts (project order, a coordinator's brief) no longer include finished agents.
+- Overview and a coordinator's agent tree mark finished agents **Finished**.
+- PR manager: brace expansion and globs outside quotes no longer pass its read-only command check (`gh api {-XDELETE,…}` was approved). Its push/merge deny rules now also cover `git -C <dir> push`, `gh -R … pr merge` and `gh api` merge or git-data/contents writes, and apply to one-time launches in a workspace, not only to coordinators. Launch says that a scheduled PR manager cannot get them.
+- Coordinators start in the provider's auto mode when the host offers one (Claude `auto`, Codex `auto-review`), instead of whatever the host's default mode is.
+- Running rows are grey, so green only means finished. Running and Finished show at most 30 entries; the header's "working" count no longer includes archived agents.
+- Removed the stale root copies of the handoff and spec (`docs/` has the current ones) and stopped tracking `.claude/scheduled_tasks.lock`.
+
 ## 0.1.0-alpha.25 — 2026-10-24
 - Needs attention, Running, Overview and the sidebar badge update live: Workbench now opens Paseo's agent subscription and refreshes about a second after any agent changes (measured: a new permission request showed within 0.4 s). The 15-second refresh remains as a fallback; the sidebar badge, which never actually received live updates before, now does.
 

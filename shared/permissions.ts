@@ -77,6 +77,10 @@ export function escalation(input: unknown): string | null {
 // Every argument is checked against an allowlist per subcommand (default deny): a flag that is not listed, such as
 // `-XDELETE` or `git branch -D`, keeps the command pending for the user.
 const SHELL_META = /[;&|<>`$\\\n\r]/;
+// Brace expansion and globs turn one word into several (`gh api {-XDELETE,repos/o/r/git/refs/heads/main}`), so they are
+// refused outside quotes. gh's own placeholders are literal to the shell and allowed.
+const EXPANDS = /[{}*?[\]]/;
+const GH_PLACEHOLDERS = /\{(owner|repo|branch)\}/g;
 
 type Rule = {
   /** Flags this subcommand may use: "flag" takes no value, "value" takes one (`--x v` or `--x=v`). */
@@ -147,6 +151,7 @@ function fits(args: readonly string[], rule: Rule): boolean {
 export function isReadOnlyPrCommand(command: string): boolean {
   const c = command.trim();
   if (!c || SHELL_META.test(c)) return false;
+  if (EXPANDS.test(c.replace(/"[^"]*"|'[^']*'/g, "").replace(GH_PLACEHOLDERS, ""))) return false;
   const w = words(c);
   if (!w || w.length < 2) return false;
   if (w[0] === "gh") {

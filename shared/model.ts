@@ -68,8 +68,14 @@ export function projectKey(serverId: string, projectId: string): string {
   return `${serverId}:${projectId}`;
 }
 
+/** Needs you: asking for permission or failed (Paseo's amber and red dots, same rules as its deriveAgentStateBucket). */
 export function isAttention(agent: WorkbenchAgent): boolean {
-  return agent.requiresAttention || agent.pendingPermissionCount > 0 || agent.status === "error";
+  return agent.pendingPermissionCount > 0 || agent.attentionReason === "permission" || agent.status === "error" || agent.attentionReason === "error";
+}
+
+/** Paseo's green dot ("ready to review"): finished since you last opened it. Opening the agent in Paseo clears it. */
+export function isReadyToReview(agent: WorkbenchAgent): boolean {
+  return !agent.archived && agent.requiresAttention && !isAttention(agent) && agent.status !== "running";
 }
 
 export function groupProjects(workspaces: readonly WorkbenchWorkspace[], agents: readonly WorkbenchAgent[]): ProjectGroup[] {
@@ -206,7 +212,7 @@ export function ago(iso: string | null | undefined, now: number): string {
   return hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} d ago`;
 }
 
-export type AttentionKind = "permission" | "error" | "finished" | "attention";
+export type AttentionKind = "permission" | "error";
 export type AttentionItem = {
   serverId: string; agentId: string; title: string; workspaceName: string | null;
   /** Title of the agent that started this one (Coordinator, reviewer), when there is one. */
@@ -214,11 +220,11 @@ export type AttentionItem = {
   kind: AttentionKind; headline: string; details: string[]; since: string | null;
 };
 export type AttentionGroup = { key: string; name: string; serverId: string | null; items: AttentionItem[] };
-const URGENCY: Record<AttentionKind, number> = { permission: 0, error: 1, attention: 2, finished: 3 };
+const URGENCY: Record<AttentionKind, number> = { permission: 0, error: 1 };
 
 /**
  * Attention items with their reason and evidence, grouped by project, most urgent first (blocked on you,
- * then failures, then finished). Agents outside any listed project (e.g. Coordinators) get their own group.
+ * then failures). Agents outside any listed project (e.g. Coordinators) get their own group.
  */
 export function attentionGroups(agents: readonly WorkbenchAgent[], projects: readonly ProjectGroup[]): AttentionGroup[] {
   const groups = new Map<string, AttentionGroup>();
@@ -227,16 +233,11 @@ export function attentionGroups(agents: readonly WorkbenchAgent[], projects: rea
     const project = projects.find((p) => p.serverId === agent.serverId && p.workspaces.some((w) => w.workspaceId === agent.workspaceId));
     const workspace = project?.workspaces.find((w) => w.workspaceId === agent.workspaceId);
     const permissions = agent.permissions ?? [];
-    const kind: AttentionKind = agent.pendingPermissionCount > 0 ? "permission"
-      : agent.status === "error" || agent.attentionReason === "error" ? "error"
-      : agent.attentionReason === "finished" ? "finished" : "attention";
-    // An agent started by another agent (committee member, second opinion, a Coordinator's worker) reports to
-    // that parent: its finishing is the parent's business. Its permission requests and failures still need the user.
+    const kind: AttentionKind = agent.pendingPermissionCount > 0 || agent.attentionReason === "permission" ? "permission" : "error";
+    // Labeled with the agent that started it (committee member, second opinion, a Coordinator's worker).
     const parentId = agent.labels["paseo.parent-agent-id"];
     const parent = parentId ? agents.find((a) => a.serverId === agent.serverId && a.agentId === parentId) : undefined;
-    if (parentId && (kind === "finished" || kind === "attention")) continue;
-    const headline = kind === "permission" ? `Waiting for your permission${agent.pendingPermissionCount > 1 ? ` (${agent.pendingPermissionCount})` : ""}`
-      : kind === "error" ? "Failed" : kind === "finished" ? "Finished, waiting for you" : "Needs attention";
+    const headline = kind === "permission" ? `Waiting for your permission${agent.pendingPermissionCount > 1 ? ` (${agent.pendingPermissionCount})` : ""}` : "Failed";
     const details = kind === "permission"
       ? [...permissions.slice(0, 3), ...(permissions.length > 3 ? [`and ${permissions.length - 3} more`] : [])]
       : kind === "error" && agent.lastError ? [clip(agent.lastError, 300)] : [];
@@ -297,6 +298,11 @@ export function toggleAssignedWorkspace(a: Assignment, p: AssignableProject, wor
 
 const BUSY = new Set(["running", "initializing"]);
 
+/** Working now (the header's "working" count). */
+export function isWorking(agent: WorkbenchAgent): boolean {
+  return !agent.archived && BUSY.has(agent.status);
+}
+
 /** An agent Workbench may offer to archive: not working, not waiting on you, not a coordinator. */
 export function archivable(agent: WorkbenchAgent): boolean {
   return !agent.archived && !BUSY.has(agent.status) && agent.pendingPermissionCount === 0 && agent.labels[COORDINATOR_LABEL] !== COORDINATOR_VALUE;
@@ -316,6 +322,6 @@ export function finishedSpecialists(agents: readonly WorkbenchAgent[]): Workbenc
 export function sidebarCounts(agents: readonly WorkbenchAgent[], projects: readonly ProjectGroup[]): { attention: number; running: number } {
   return {
     attention: attentionGroups(agents, projects).reduce((n, g) => n + g.items.length, 0),
-    running: agents.filter((a) => !a.archived && (a.status === "running" || a.status === "initializing")).length,
+    running: agents.filter(isWorking).length,
   };
 }

@@ -121,6 +121,7 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
     <Text style={{color:theme.colors.foregroundMuted,fontSize:11}}>Model: {model||"Not configured: choose one in Workbench > Settings."}</Text>
     {mode?<Notice theme={theme} kind={mode.kind==="read-only"?"success":mode.kind==="sandbox"?"info":"error"} text={describeMode(mode)}/>:null}
     {blocked?<Notice theme={theme} kind="error" text={blocked}/>:null}
+    {schedule&&isPr?<Notice theme={theme} kind="error" text="Scheduled runs cannot get Workbench's push and merge block (Paseo schedules take no provider options): each run relies on its instructions and your own permission rules."/>:null}
     {isPr?<>
       <Text style={{color:theme.colors.foreground,fontSize:12,fontWeight:"600"}}>Pull requests to check</Text>
       <Wrap>{([["mine","My PRs"],["review-requested","Asking for my review"],["all","All open PRs"]] as const).map(([id,text])=><Choice key={id} theme={theme} label={`${prWatch.includes(id)?"✓ ":""}${text}`} selected={prWatch.includes(id)} onPress={()=>togglePr(id)}/>)}</Wrap>
