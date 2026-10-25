@@ -4,7 +4,7 @@ import type { ProjectGroup, WorkbenchWorkspace } from "../shared/model";
 import { COORDINATOR_ID_LABEL, COORDINATOR_LABEL, COORDINATOR_VALUE, SPECIALIST_LABEL, PARENT_AGENT_ID_LABEL, SECOND_OPINION_FOR_LABEL } from "../shared/settings";
 import { specialistPrompt, type PrWatch, type SpecialistScope } from "../shared/prompts";
 import { transcriptRows, transcriptText } from "../shared/transcript";
-import { planLaunchMode, providerOf, type LaunchMode } from "../shared/permissions";
+import { planLaunchMode, providerOf, secondReviewerModeId, type LaunchMode } from "../shared/permissions";
 
 /** Explicit choice only: a profile override, else the saved default. Workbench never guesses a model. */
 export function resolveModel(saved:string, override:string):string {
@@ -117,7 +117,7 @@ export async function createSpecialist(input:{
     if(!secondModel)throw new Error(`Choose a second reviewer model for ${helper.name} in Workbench > Settings to run a ${review==="committee"?"committee":"second opinion"}.`);
     // The second reviewer gets the same permission requirement as the profile, never a weaker one.
     // Never weaker than the primary: the same permission requirement, and the profile's chosen mode when the provider is the same.
-    second={model:secondModel,mode:planLaunchMode({name:`${helper.name} ${teamName}`,providerModel:secondModel,modeId:providerOf(secondModel)===providerOf(model)?helper.modeId:"",requireReadOnly:helper.requireReadOnly})};
+    second={model:secondModel,mode:planLaunchMode({name:`${helper.name} ${teamName}`,providerModel:secondModel,modeId:secondReviewerModeId(model,secondModel,helper.modeId),requireReadOnly:helper.requireReadOnly})};
   }
   await checkChosenMode(paseo,primary);
 
@@ -144,7 +144,8 @@ export async function createSpecialist(input:{
   }
   // Both agents exist before either gets its task, so the primary is told about a second opinion only if one is really coming.
   const primaryRole=review==="committee"?"chair" as const:"primary" as const;
-  await sendTask(primaryAgent,helper.name,specialistPrompt({...base,...(secondAgent&&second?{secondOpinion:{role:primaryRole,model:second.model}}:{})}));
+  try{await sendTask(primaryAgent,helper.name,specialistPrompt({...base,...(secondAgent&&second?{secondOpinion:{role:primaryRole,model:second.model}}:{})}))}
+  catch(error){await secondAgent?.archive().catch(()=>undefined);throw error} // the second never got its task
   if(secondAgent&&second){
     let failure:string|undefined;
     const secondRole=review==="committee"?{role:"member" as const,model}:{role:"second" as const};

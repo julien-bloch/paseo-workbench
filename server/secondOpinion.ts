@@ -38,7 +38,9 @@ export async function registerSecondOpinionPair(paseo: PaseoApi, primaryId: stri
 export function sweepOnce(paseo: PaseoApi) {
   if (swept) return;
   swept = true;
-  void readState().then((state) => { for (const primaryId of new Set(Object.values(state.secondOpinions).map((p) => p.primaryId))) schedule(paseo, primaryId); });
+  void readState()
+    .then((state) => { for (const primaryId of new Set(Object.values(state.secondOpinions).map((p) => p.primaryId))) schedule(paseo, primaryId); })
+    .catch((error) => console.error("second-opinion sweep failed", error instanceof Error ? error.message : error));
 }
 
 export function registerSecondOpinionRelay(server: PluginServerContext): () => void {
@@ -108,10 +110,17 @@ async function committeeStep(paseo: PaseoApi, chairId: string, memberId: string,
   if (busy(chairStatus) || busy(member.status)) return "retry";
   const [chairList, memberList] = await Promise.all([timeline(paseo, chairId), timeline(paseo, memberId)]);
   const toMember = `c0m:${memberId}`, toChair = `c0c:${memberId}`, consensus = `c1:${memberId}`;
+  // An idle member with an error and nothing to show for this stage will not answer: the chair finishes alone.
+  const memberOutput = (pair.stage ?? 0) === 0 ? pair.exchange?.toChair ?? lastReport(memberList) : replyAfter(memberList, toMember);
+  if (!memberOutput && member.lastError) {
+    await relaySend(paseo, chairId, `cf:${memberId}`, `${COMMITTEE_MARKER} The committee member (agent ${memberId}) failed: ${member.lastError}\n\nFinish as a single review: your own findings, checked against the code, and the table described in your task.`);
+    await updateState((s) => { const p = s.secondOpinions[memberId]; if (p) { p.stage = 2; delete p.exchange; } });
+    return "done";
+  }
   if ((pair.stage ?? 0) === 0) {
     let exchange = pair.exchange;
     if (!exchange) {
-      const chairReport = lastReport(chairList), memberReport = lastReport(memberList);
+      const chairReport = lastReport(chairList), memberReport = memberOutput;
       if (!chairReport || !memberReport) return "done"; // a turn end of the other member triggers this again
       exchange = { toMember: chairReport, toChair: memberReport };
       const frozen = exchange;
@@ -120,7 +129,7 @@ async function committeeStep(paseo: PaseoApi, chairId: string, memberId: string,
     await relaySend(paseo, memberId, toMember, `${COMMITTEE_MARKER} The chair's review (agent ${chairId}):\n\n${exchange.toMember}\n\nCheck each of its findings against the code. For each, say whether you agree or disagree, with evidence, then list what you still disagree on.`);
     await relaySend(paseo, chairId, toChair, `${COMMITTEE_MARKER} The member's review (agent ${memberId}):\n\n${exchange.toChair}\n\nCheck each of its findings against the code and say for each whether you agree or disagree, with evidence. The member's response to your findings follows later.`);
     await updateState((s) => { const p = s.secondOpinions[memberId]; if (p) p.stage = 1; });
-    return "done";
+    // Fall through: on a retry after a lost stage write, both replies may already be in the timelines read above.
   }
   // Stage 1: both have replied to the exchanged review (even if a reply repeats their earlier text).
   const memberReply = replyAfter(memberList, toMember);
@@ -135,7 +144,11 @@ async function deliver(paseo: PaseoApi, primaryId: string): Promise<"done" | "re
   const pairs = Object.entries((await readState()).secondOpinions).filter(([, pair]) => pair.primaryId === primaryId);
   if (!pairs.length) return "done";
   const primary = (await paseo.agents.ref(primaryId).refresh())?.agent;
-  if (!primary || primary.archivedAt) return "done";
+  if (!primary || primary.archivedAt) {
+    // Nothing can be delivered any more: forget the pairs, so restarts stop re-checking them.
+    await updateState((s) => { for (const [secondId] of pairs) delete s.secondOpinions[secondId]; });
+    return "done";
+  }
   let waiting = false;
   for (const [secondId, pair] of pairs) {
     if (pair.mode === "committee" && !pair.failure) {

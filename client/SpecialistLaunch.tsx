@@ -6,7 +6,7 @@ import { createSchedule, registerSecondOpinion } from "../shared/rpc";
 import { Text, View } from "react-native";
 import type { Preferences } from "../shared/settings";
 import type { ProjectGroup, WorkbenchWorkspace } from "../shared/model";
-import { planLaunchMode, type LaunchMode } from "../shared/permissions";
+import { planLaunchMode, secondReviewerModeId, type LaunchMode } from "../shared/permissions";
 import { createSpecialist, promptInput, resolveModel, type ReviewMode } from "./actions";
 import { specialistPrompt } from "../shared/prompts";
 import type { PrWatch, SpecialistScope } from "../shared/prompts";
@@ -26,6 +26,8 @@ export interface SpecialistLaunchProps {
   embedded?:boolean;
   /** Create a Paseo schedule (a new agent each run) instead of launching now. */
   schedule?:{cron:string;timezone:string;label:string}|null;
+  /** The workspace's host when it is not this plugin's own: relays and schedules run on this host, so neither is offered. */
+  otherHost?:string;
   onScheduled?:()=>void;
 }
 
@@ -36,7 +38,7 @@ export function describeMode(mode:LaunchMode):string {
   return `${which}: NOT read-only. Only the written instructions discourage edits.`;
 }
 
-export function SpecialistLaunch({theme,specialistId,paseo,settings,project,workspace,parentAgentId,onCreated,embedded=false,schedule=null,onScheduled}:SpecialistLaunchProps){
+export function SpecialistLaunch({theme,specialistId,paseo,settings,project,workspace,parentAgentId,onCreated,embedded=false,schedule=null,onScheduled,otherHost}:SpecialistLaunchProps){
   const [selectedId,setSelectedId]=useState("reviewer");
   // Conversations that can be summarized here: the agent this panel belongs to, or any agent in this workspace.
   const conversations=parentAgentId?[]:project.agents.filter(a=>a.workspaceId===workspace.workspaceId&&!a.archived).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
@@ -71,11 +73,13 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
   let secondMode:LaunchMode|null=null;
   let secondBlocked="";
   if(helper&&secondModel){
-    try{secondMode=planLaunchMode({name:`${helper.name} second reviewer`,providerModel:secondModel,modeId:"",requireReadOnly:helper.requireReadOnly})}
+    try{secondMode=planLaunchMode({name:`${helper.name} second reviewer`,providerModel:secondModel,modeId:secondReviewerModeId(model,secondModel,helper.modeId),requireReadOnly:helper.requireReadOnly})}
     catch(e){secondBlocked=e instanceof Error?e.message:String(e)}
   }
   // Scheduled runs are single reviews: a second opinion or committee is set up by Workbench at launch.
-  const review:ReviewMode=schedule?"single":secondModel?chosenReview??helper?.defaultReview??"single":"single";
+  // Neither for another host's workspace: the relay runs in this host's plugin, which cannot see that host's agents.
+  const review:ReviewMode=schedule||otherHost?"single":secondModel?chosenReview??helper?.defaultReview??"single":"single";
+  if(schedule&&otherHost){blocked=`Schedules are created by this host's Paseo, so they run only in its own workspaces. Open Workbench on ${otherHost} to schedule there.`;mode=null}
   // The CLI cannot pass Codex's sandbox option, so a read-only Codex profile cannot be scheduled.
   if(schedule&&mode?.kind==="sandbox"){blocked=`${helper?.name} needs Codex's read-only sandbox, which a scheduled run cannot request. Use a Claude model for this profile, or turn off "require read-only" in Settings.`;mode=null}
   const team=review!=="single";
@@ -133,7 +137,8 @@ export function SpecialistLaunch({theme,specialistId,paseo,settings,project,work
       {scope==="session"&&!parentAgentId?<Wrap>{conversations.slice(0,20).map(a=><Choice key={a.agentId} theme={theme} label={a.title} selected={sessionId===a.agentId} onPress={()=>setSessionId(a.agentId)}/>)}</Wrap>:null}
     </>}
     {scope==="pull-request"?<Field theme={theme} label="Pull request number" value={prNumber} onChangeText={setPrNumber} placeholder="e.g. 42" helper="Fetched with git (refs/pull/N/head from this repository's GitHub remote) into a new worktree workspace. Your current checkout is not touched."/>:null}
-    {helper&&!schedule&&!isPr?<>
+    {helper&&!schedule&&!isPr&&otherHost?<Notice theme={theme} text={`Second opinion and committee are relayed by this host's Workbench, which cannot see agents on ${otherHost}: this runs as a single review.`}/>:null}
+    {helper&&!schedule&&!isPr&&!otherHost?<>
       <Text style={{color:theme.colors.foreground,fontSize:12,fontWeight:"600"}}>Review</Text>
       <Wrap>
         <Choice theme={theme} label="Single" selected={review==="single"} onPress={()=>setChosenReview("single")}/>

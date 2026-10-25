@@ -143,7 +143,8 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
         {project && project.workspaces.length > 1 ? <Wrap>{project.workspaces.map((w) => <Choice key={w.workspaceId} theme={theme} label={w.name} selected={workspace?.workspaceId === w.workspaceId} onPress={() => setWorkspaceId(w.workspaceId)} />)}</Wrap> : null}
         {!pickable.length ? <Notice theme={theme} text="No projects on reachable hosts. Add one in Paseo." /> : null}
         {project && workspace && !asCoordinator ? <SpecialistLaunch key={`${profile.id}:${workspace.workspaceId}`} embedded theme={theme} specialistId={profile.id} paseo={getPaseoClient(workspace.serverId)} settings={values} project={project} workspace={workspace}
-          schedule={schedule} onScheduled={() => setSchedulesVersion((v) => v + 1)} onCreated={(id) => openAgent(id, workspace.serverId)} /> : null}
+          schedule={schedule} onScheduled={() => setSchedulesVersion((v) => v + 1)} onCreated={(id) => openAgent(id, workspace.serverId)}
+          {...(workspace.serverId !== coordinators.host.id ? { otherHost: hostLabel(workspace.serverId) } : {})} /> : null}
       </> : null}
 
       {asCoordinator && profile ? <>

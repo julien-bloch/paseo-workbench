@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { sameValue, type Specialist, type Preferences } from "../shared/settings";
-import { planLaunchMode, providerOf } from "../shared/permissions";
+import { planLaunchMode, providerOf, secondReviewerModeId } from "../shared/permissions";
 import { resolveModel } from "./actions";
 import { describeMode } from "./SpecialistLaunch";
 import { useDraft } from "./useDraft";
@@ -76,7 +76,7 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
   }
   let secondSummary:{text:string;readOnly:boolean}|null=null;
   if(draft?.secondOpinionModel){
-    try{const mode=planLaunchMode({name:`${draft.name} second reviewer`,providerModel:draft.secondOpinionModel,modeId:"",requireReadOnly:draft.requireReadOnly});secondSummary={text:describeMode(mode),readOnly:mode.kind==="read-only"||mode.kind==="sandbox"}}
+    try{const mode=planLaunchMode({name:`${draft.name} second reviewer`,providerModel:draft.secondOpinionModel,modeId:secondReviewerModeId(specialistModel,draft.secondOpinionModel,draft.modeId),requireReadOnly:draft.requireReadOnly});secondSummary={text:describeMode(mode),readOnly:mode.kind==="read-only"||mode.kind==="sandbox"}}
     catch(e){secondSummary={text:e instanceof Error?e.message:String(e),readOnly:false}}
   }
 

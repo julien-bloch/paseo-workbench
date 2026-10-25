@@ -30,6 +30,11 @@ export function providerOf(providerModel: string): string {
   return providerModel.split("/")[0] ?? "";
 }
 
+/** A second reviewer's mode: never weaker than the primary, so the profile's chosen mode when the provider is the same. */
+export function secondReviewerModeId(model: string, secondModel: string, modeId: string): string {
+  return providerOf(secondModel) === providerOf(model) ? modeId : "";
+}
+
 export type LaunchMode =
   | { kind: "read-only"; modeId: string; boundary: string }
   | { kind: "sandbox"; options: Record<string, string>; boundary: string }

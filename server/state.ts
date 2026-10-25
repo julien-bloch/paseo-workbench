@@ -13,8 +13,8 @@ export interface WorkbenchState {
   /** Second-opinion or committee-member agent id -> its primary (chair), plus hashes of reports already delivered. */
   secondOpinions: Record<string, {
     primaryId: string; failure?: string; delivered: string[];
-    /** Committee progress: 0 independent reviews, 1 exchanged, 2 consensus requested. Hashes record what was sent. */
-    mode?: "committee"; stage?: number; sentToMember?: boolean; sentToChair?: boolean;
+    /** Committee progress: 0 independent reviews, 1 exchanged, 2 consensus requested (or the member failed). */
+    mode?: "committee"; stage?: number;
     /** The two independent reviews, frozen when the exchange starts so a retried send repeats exactly them. */
     exchange?: { toMember: string; toChair: string };
   }>;
@@ -23,13 +23,17 @@ export interface WorkbenchState {
 }
 
 const FILE = join(BASE, "state.json");
-let cache: WorkbenchState | null = null;
+// The read itself is cached, so concurrent first reads share one object and a late parse cannot replace an updated one.
+let cache: Promise<WorkbenchState> | null = null;
 let chain: Promise<unknown> = Promise.resolve();
 
-export async function readState(): Promise<WorkbenchState> {
-  if (cache) return cache;
-  try { cache = JSON.parse(await readFile(FILE, "utf8")) as WorkbenchState; }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; cache = { coordinators: {}, secondOpinions: {} }; }
+export function readState(): Promise<WorkbenchState> {
+  cache ??= readFile(FILE, "utf8").then((text) => JSON.parse(text) as WorkbenchState, (error) => {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    return { coordinators: {}, secondOpinions: {} };
+  });
+  // A failed read is not cached: the next caller tries again.
+  cache.catch(() => { cache = null; });
   return cache;
 }
 
