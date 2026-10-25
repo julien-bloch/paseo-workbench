@@ -20,6 +20,16 @@ const TURN_MS = 240_000;
 let conn, paseo, daemon, serverId, repo, workspace, project;
 const created = [];
 const settingsDefaults = () => preferences.schema.parse({});
+/** Every workspace on the test daemon: a long-lived dev home holds more than one page of 200. */
+async function allWorkspaces() {
+  const all = [];
+  for (let cursor; ;) {
+    const r = await paseo.workspaces.list({ page: { limit: 200, ...(cursor ? { cursor } : {}) } });
+    all.push(...r.entries);
+    if (!r.pageInfo.hasMore || !r.pageInfo.nextCursor) return all;
+    cursor = r.pageInfo.nextCursor;
+  }
+}
 const registerPair = (primaryId, secondId, mode, failure) => rpc('workbench.register_second_opinion', { primaryId, secondId, mode, ...(failure ? { failure } : {}) });
 
 function git(...args) { return execFileSync('git', args, { cwd: repo, encoding: 'utf8' }); }
@@ -78,7 +88,7 @@ after(async () => {
   for (const id of created) await paseo.agents.ref(id).archive().catch(() => {});
   // Worktrees opened for the temporary test repositories (PR reviews, fixers) would pile up on the test daemon.
   const tmp = realpathSync(tmpdir());
-  for (const w of (await paseo.workspaces.list({ page: { limit: 200 } })).entries)
+  for (const w of (await allWorkspaces()))
     if (w.workspaceKind === 'worktree' && existsSync(w.projectRootPath ?? '/nope') && realpathSync(w.projectRootPath).startsWith(tmp)) await paseo.workspaces.archive(w.id).catch(() => {});
   await conn?.close();
 });
@@ -399,7 +409,7 @@ test('multiple coordinators: one shared working folder (one Paseo project), own 
   assert.equal(agentB.labels['workbench.coordinator-id'], 'c-test');
   assert.equal(agentB.cwd, home2.path);
   const agentA = (await paseo.agents.ref(a.agentId).refresh()).agent;
-  const ws = (await paseo.workspaces.list({ page: { limit: 200 } })).entries;
+  const ws = (await allWorkspaces());
   const projectOf = (agent) => ws.find((w) => w.id === agent.workspaceId)?.projectId;
   assert.ok(projectOf(agentA) && projectOf(agentA) === projectOf(agentB), 'both coordinators are in the same Paseo project');
   for (const id of [a.agentId, b.agentId]) await paseo.agents.ref(id).waitForFinish(TURN_MS).catch(() => {});
@@ -495,11 +505,11 @@ test('PR manager: reads PRs with gh by itself, is refused a merge, opens a PR wo
   await settle(result.agentId).catch(() => {});
 
   // 3. A PR worktree and a fixer in an ask-before-shell mode start without asking.
-  const before = new Set((await paseo.workspaces.list({ page: { limit: 200 } })).entries.map((w) => w.id));
+  const before = new Set((await allWorkspaces()).map((w) => w.id));
   await pm.send(`Use the Paseo create_workspace tool once with isolation "worktree", mode "checkout-pr", prNumber 1, path "${source}". Then use create_agent once to start an agent in that new workspace with provider "claude/claude-haiku-4-5", settings.modeId "acceptEdits", and initial prompt "Reply OK. Do not use tools." Report both ids.`);
   const s3 = await settle(result.agentId);
   assert.equal(s3.pendingPermissions.length, 0);
-  const newWs = (await paseo.workspaces.list({ page: { limit: 200 } })).entries.filter((w) => !before.has(w.id));
+  const newWs = (await allWorkspaces()).filter((w) => !before.has(w.id));
   const prHead = execFileSync('git', ['ls-remote', 'https://github.com/octocat/Hello-World.git', 'refs/pull/1/head'], { encoding: 'utf8' }).split('\t')[0];
   const prWs = newWs.find((w) => { try { return sh(w.workspaceDirectory, 'rev-parse', 'HEAD') === prHead; } catch { return false; } });
   console.log(`# new workspaces: ${newWs.map((w) => w.workspaceDirectory).join(', ')}`);
@@ -637,7 +647,7 @@ test('worktrees: PR-review worktree reused; listed with uncommitted state; remov
   const stamp = Date.now().toString(36);
   // A worktree titled the way Workbench titles its PR-review worktrees (no network needed).
   const h = await paseo.workspaces.create({ title: 'PR #999 review', source: { kind: 'worktree', cwd: repo, action: 'branch-off', branchName: `wb-pr999-${stamp}` } });
-  const tree = (await paseo.workspaces.list({ page: { limit: 200 } })).entries.find((w) => w.id === h.id);
+  const tree = (await allWorkspaces()).find((w) => w.id === h.id);
   assert.equal(tree.workspaceKind, 'worktree');
   assert.equal((await createPullRequestWorkspace(paseo, workspace, 999)).workspaceId, tree.id, 'reused, not a second worktree');
 
