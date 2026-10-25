@@ -24,9 +24,12 @@ export async function adoptOrRelease(paseo: PaseoApi, coordinatorAgentId: string
       : action === "adopt" ? (parent && parent !== coordinatorAgentId ? "already a subagent of another agent" : "")
       : parent !== coordinatorAgentId ? "not this coordinator's subagent" : "";
     if (reason) { skipped.push({ agentId, reason }); continue; }
-    if (action === "adopt" && parent !== coordinatorAgentId) await cli(["agent", "update", `--label=${PARENT_AGENT_ID_LABEL}=${coordinatorAgentId}`, "--", agentId]);
-    if (action === "release") await cli(["agent", "detach", "--", agentId]);
-    done.push(agentId);
+    // One failure must not hide the others: the coordinator is told about every agent that did change.
+    try {
+      if (action === "adopt" && parent !== coordinatorAgentId) await cli(["agent", "update", `--label=${PARENT_AGENT_ID_LABEL}=${coordinatorAgentId}`, "--", agentId]);
+      if (action === "release") await cli(["agent", "detach", "--", agentId]);
+      done.push(agentId);
+    } catch (error) { skipped.push({ agentId, reason: error instanceof Error ? error.message : String(error) }); }
   }
   if (done.length) {
     const list = done.map((id) => `- ${id}`).join("\n");

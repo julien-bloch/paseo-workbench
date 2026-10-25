@@ -163,6 +163,8 @@ test('attention groups: by project, blocked-on-you first, with evidence; agents 
   assert.deepEqual(groups[0].items[0].details,['$ git push','edit a.py']);
   assert.deepEqual(groups[0].items[1].details,['Provider quota exceeded']);
   assert.equal(groups[0].items[0].workspaceName,'main');
+  const asksAfterFinishing={...ag('late'),pendingPermissionCount:1,requiresAttention:true,attentionReason:'finished',attentionSince:'2026-10-20T10:00:00Z',updatedAt:'2026-10-22T11:59:00Z'};
+  assert.equal(attentionGroups([asksAfterFinishing],projects)[0].items[0].since,'2026-10-22T11:59:00Z','a stale finished time is not the permission\'s');
 });
 
 test('ready to review: exactly Paseo\'s green dot, subagents included',()=>{

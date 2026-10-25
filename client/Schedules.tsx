@@ -14,6 +14,8 @@ export function Schedules({ theme, version, openAgent }: { theme: PluginTheme; v
   const act = useRpc(scheduleAction);
   const [rows, setRows] = useState<ScheduleRow[] | null>(null);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState("");
   const [busy, setBusy] = useState("");
   const [expanded, setExpanded] = useState("");
   async function load() {
@@ -22,14 +24,16 @@ export function Schedules({ theme, version, openAgent }: { theme: PluginTheme; v
   }
   useEffect(() => { void load(); }, [version]);
   async function run(id: string, action: "pause" | "resume" | "delete") {
-    setBusy(id);
+    if (action === "delete" && confirmDelete !== id) { setConfirmDelete(id); return; }
+    setConfirmDelete(""); setBusy(id); setActionError("");
     try { await act({ id, action }); await load(); }
-    catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    catch (e) { setActionError(e instanceof Error ? e.message : String(e)); }
     finally { setBusy(""); }
   }
   if (!rows?.length && !error) return null;
   return <Section theme={theme} title="Schedules" subtitle="Created by Workbench on this host. Paseo runs them while the daemon is up.">
     {error ? <Notice theme={theme} kind="error" text={`Could not read schedules: ${error}`} /> : null}
+    {actionError ? <Notice theme={theme} kind="error" text={actionError} /> : null}
     {(rows ?? []).map((r) => <View key={r.id} style={{ gap: 6 }}>
       <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{r.name.replace(/^Workbench: /, "")}</Text>
       <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>
@@ -54,7 +58,8 @@ export function Schedules({ theme, version, openAgent }: { theme: PluginTheme; v
       </View> : null}
       <Wrap>
         {r.kind === "workspace" ? <Button theme={theme} subtle disabled={busy === r.id} label={r.status === "paused" ? "Resume" : "Pause"} onPress={() => void run(r.id, r.status === "paused" ? "resume" : "pause")} /> : null}
-        <Button theme={theme} subtle disabled={busy === r.id} label="Delete" onPress={() => void run(r.id, "delete")} />
+        <Button theme={theme} subtle disabled={busy === r.id} label={confirmDelete === r.id ? "Confirm: delete" : "Delete"} onPress={() => void run(r.id, "delete")} />
+        {confirmDelete === r.id ? <Button theme={theme} subtle label="Cancel" onPress={() => setConfirmDelete("")} /> : null}
       </Wrap>
     </View>)}
   </Section>;

@@ -81,9 +81,10 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
       projectIds, workspaceIds, profileId: profile.id, kind: isPrManager ? "pr-manager" : "general", prScope,
     };
     try {
-      const { saved, agentId } = await coordinators.launch(entry);
+      const { saved, agentId, registered } = await coordinators.launch(entry);
       if (!saved) return;
       if (!agentId) { if (schedule || adopting.length) setLaunchNote({ kind: "error", text: `${entry.name} did not start, so it took over no agents and no check-ins were scheduled.` }); return; }
+      if (!registered) { if (schedule || adopting.length) setLaunchNote({ kind: "error", text: `${entry.name} is running but not registered for autonomy, so it took over no agents and no check-ins were scheduled. Refresh context in Command registers it.` }); return; }
       const problems: string[] = [];
       if (adopting.length) {
         try {

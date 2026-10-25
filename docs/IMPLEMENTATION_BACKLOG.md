@@ -12,7 +12,7 @@ This backlog converts ENGINEERING_SPEC into actionable engineering tickets. Prio
 | WB-006 | P0 | Offline and reconnect correctness | **Done** | Stopped host → "1 of 2 hosts read", no all-clear; unit test `attentionHeadline`; per-refresh sequence guard kept |
 | WB-007 | P0 | Phone / responsive QA | **Partial** | Web build at iPhone 13 viewport and desktop, dark and light; overflow bug fixed. Not run in the native iOS/Android app |
 | WB-008 | P0 | Export and privacy controls for notes | **Done (basic)** | Snapshot preview before write/send; selectable JSON export of notes and profiles; no automatic ingestion |
-| WB-009 | P1 | Owned agent/workspace subscriptions | Open | Still 15-second polling |
+| WB-009 | P1 | Owned agent/workspace subscriptions | **Done (agents)** | alpha.25: Paseo's agent-list subscription refreshes about a second after any agent change (measured 0.4 s for a permission request); 15-second refresh as fallback. Workspaces still refresh with it |
 | WB-010 | P1 | Native subagent SDK proposal | **Proposal written; deferred** | docs/NATIVE_SUBAGENT_SDK_PROPOSAL.md. Owner decision 2026-10-21: no upstream Paseo PR for now; keep the live-only view |
 | WB-011 | P1 | Native-child drilldown | Open | Blocked on WB-010 |
 | WB-012 | P1 | Structured review results | Open | |

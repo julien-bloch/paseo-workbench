@@ -27,14 +27,18 @@ function useConversation(serverId: string, agentId: string) {
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
     const ref = getPaseoClient(serverId).agents.ref(agentId);
+    // A slow, older load must not overwrite a newer one (an answered question would reappear).
+    let started = 0, applied = 0;
     const load = async () => {
+      const seq = ++started;
       try {
         const page = await ref.timeline.refetch({ direction: "tail", limit: 300 });
         const snapshot = page.agent ?? (await ref.refresh())?.agent ?? null;
-        if (!alive) return;
+        if (!alive || seq < applied) return;
+        applied = seq;
         setItems(page.entries.map((e) => ((e as { item?: { type: string } }).item ?? e) as { type: string }));
         setAgent(snapshot); setError("");
-      } catch (e) { if (alive) setError(e instanceof Error ? e.message : String(e)); }
+      } catch (e) { if (alive && seq >= applied) setError(e instanceof Error ? e.message : String(e)); }
     };
     // Bursts of streaming events collapse into one refetch; a slow poll covers anything the stream misses.
     const schedule = () => { if (timer) clearTimeout(timer); timer = setTimeout(() => void load(), 250); };
@@ -59,8 +63,9 @@ export function Command({ host, theme, layout, values, directory, projects, open
     return map;
   }, [directory.agents, projects]);
   const adopt = useRpc(adoptAgents);
-  // An archived coordinator is gone from Command; its saved entry is pruned at the next launch.
-  const shown = coordinators.hostReadable ? values.coordinators.filter((c) => coordinators.liveAgent(c)) : values.coordinators;
+  // Stopped coordinators stay listed, with Start (a new agent with the saved settings), until removed or pruned at launch.
+  // The settings' built-in "default" entry was never launched unless it has an agent, so it is not listed otherwise.
+  const shown = values.coordinators.filter((c) => c.id !== "default" || coordinators.liveAgent(c));
   if (!shown.length) return <Notice theme={theme} text="No coordinators running. Launch one from the Launch tab (Where it runs: Across projects)." />;
   const current = shown.find((c) => c.id === selected) ?? shown[0]!;
   const agent = coordinators.liveAgent(current);

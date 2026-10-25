@@ -11,6 +11,12 @@
 - Session summarizer: says "earlier part omitted" when a session has more than the 1000 timeline entries it reads (the start used to drop silently).
 - Across projects: a read-only profile (Reviewer, Experiment reviewer, Session summarizer) shows a red NOT read-only notice, and its instructions no longer contradict the coordinator role about starting agents.
 - Worktrees list the gitignored files (`.env`, data, build output) that removing one deletes too. After archiving, PR-review worktrees on another host are named instead of silently skipped, and cleanup errors are shown.
+- Command lists coordinators whose agent was archived as not running, with **Start** (a new agent with the saved settings); stopped entries are pruned at launch only when the 20-coordinator limit needs room. A coordinator that started but was not registered is no longer reported as "did not start".
+- Taking over several agents: one failed update no longer hides the others from the coordinator.
+- Settings: a specialist that would not validate (empty name or instructions, description over 300 characters) cannot be saved and says why, instead of reporting a conflict with another device; clearing the skills field no longer triggers a false "changed on another device".
+- Schedules: Delete asks to confirm; a failed action shows its own error instead of "Could not read schedules".
+- A permission request asked after an older "finished" no longer shows that older time ("2 d ago").
+- Live refreshes: an older refresh finishing late no longer overwrites a newer one, and a steady stream of updates can no longer freeze the lists; the same for a coordinator's chat (an answered question could reappear).
 - Coordinators start in the provider's auto mode when the host offers one (Claude `auto`, Codex `auto-review`), instead of whatever the host's default mode is.
 - Running rows are grey, so green only means finished. Running and Finished show at most 30 entries; the header's "working" count no longer includes archived agents.
 - Removed the stale root copies of the handoff and spec (`docs/` has the current ones) and stopped tracking `.claude/scheduled_tasks.lock`.

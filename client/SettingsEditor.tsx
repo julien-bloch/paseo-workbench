@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { useState } from "react";
 import { Text, View } from "react-native";
-import { sameValue, type Specialist, type Preferences } from "../shared/settings";
+import { sameValue, SpecialistSchema, type Specialist, type Preferences } from "../shared/settings";
 import { planLaunchMode, providerOf, secondReviewerModeId } from "../shared/permissions";
 import { resolveModel } from "./actions";
 import { describeMode } from "./SpecialistLaunch";
@@ -51,7 +51,8 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
     setBusy(true);setNotice(null);
     try {
       const ok=await onSave(next);
-      setNotice(ok?{kind:"success",text:"Saved to the Paseo host. New agents will use these settings."}:{kind:"error",text:"Settings changed on another device. Your edits are kept; save again, or use Undo changes."});
+      // Drafts are validated before Save is enabled, so a refusal here is a conflict or an unreachable host.
+      setNotice(ok?{kind:"success",text:"Saved to the Paseo host. New agents will use these settings."}:{kind:"error",text:"Not saved: settings changed on another device, or the host could not be reached. Your edits are kept; save again, or use Undo changes."});
       return ok;
     } finally {setBusy(false)}
   }
@@ -67,6 +68,8 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
   // Typed as one comma-separated field; empty entries are dropped on save.
   const skills=draft?draft.skills.filter(Boolean):[];
   const badSkills=skills.filter(s=>!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/.test(s));
+  const parsed=draft?SpecialistSchema.safeParse({...draft,skills}):null;
+  const invalid=parsed&&!parsed.success?parsed.error.issues.map(i=>`${i.path.join(".")||"specialist"}: ${i.message}`)[0]??"":"";
   const specialistModel=draft?resolveModel(provider.draft.defaultModel,draft.model):"";
   const specialistModes=specialistModel?catalog.modes[providerOf(specialistModel)]??[]:[];
   let modeSummary:{text:string;readOnly:boolean}|null=null;
@@ -146,9 +149,14 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
         <Wrap>{([["single","Single"],["second-opinion","Second opinion"],["committee","Committee"]] as const).map(([id,label])=><Choice key={id} theme={theme} label={label} selected={draft.defaultReview===id} onPress={()=>updateSpecialist({defaultReview:id})}/>)}</Wrap>
         {draft.defaultReview!=="single"&&!draft.secondOpinionModel?<Notice theme={theme} kind="error" text="This default needs a second reviewer model; without one, launches run single."/>:null}
         </>}
+        {invalid&&!badSkills.length?<Notice theme={theme} kind="error" text={`Cannot save: ${invalid}`}/>:null}
         {helper.changedElsewhere?<Notice theme={theme} kind="error" text="This profile was changed on another device since you started editing."/>:null}
         <Wrap>
-          <Button theme={theme} label={busy?"Saving…":`Save ${draft.name}`} disabled={busy||badSkills.length>0} onPress={()=>void save({...values,helpers:values.helpers.map(h=>h.id===draft.id?{...draft,skills}:h)},!sameValue(storedSpecialist,helper.base))}/>
+          <Button theme={theme} label={busy?"Saving…":`Save ${draft.name}`} disabled={busy||badSkills.length>0||Boolean(invalid)} onPress={()=>{
+            // Saved as normalized (empty skill entries dropped): the draft must match, or it would look changed elsewhere.
+            helper.setDraft({...draft,skills});
+            void save({...values,helpers:values.helpers.map(h=>h.id===draft.id?{...draft,skills}:h)},!sameValue(storedSpecialist,helper.base));
+          }}/>
           <Button theme={theme} label="Undo changes" subtle disabled={busy} onPress={helper.discard}/>
           <Button theme={theme} label={confirmDelete===draft.id?`Confirm: delete ${draft.name}`:`Delete ${draft.name}`} subtle disabled={busy} onPress={()=>void deleteSpecialist(draft.id)}/>
         </Wrap>

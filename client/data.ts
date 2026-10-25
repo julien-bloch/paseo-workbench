@@ -34,6 +34,9 @@ export function useDirectory(home:{id:string;label:string}) {
   const [state,setState]=useState<Snapshot>(INITIAL);
   const [loading,setLoading]=useState(true);
   const refreshSequence=useRef(0);
+  // Newest result applied so far: an older refresh finishing late is dropped, a newer one always lands (with per-host
+  // live updates restarting refreshes every second, "only the latest started" could drop every result).
+  const appliedSequence=useRef(0);
   // Callers may hold an older `refresh`; it must still read the current host list.
   const hostsRef=useRef(hosts);
   hostsRef.current=hosts;
@@ -55,8 +58,9 @@ export function useDirectory(home:{id:string;label:string}) {
       if(result.data.truncated){truncated=true;failures[result.host.serverId]="More entries than Workbench reads (25 pages of 200); some projects and agents are not shown.";}
       else read.push(result.host.serverId);
     }
-    if(thisSequence===refreshSequence.current)
-      setState(old=>({...old,read,failures,workspaces,agents,truncated,updatedAt:new Date().toISOString()}));
+    if(thisSequence<=appliedSequence.current)return;
+    appliedSequence.current=thisSequence;
+    setState(old=>({...old,read,failures,workspaces,agents,truncated,updatedAt:new Date().toISOString()}));
   },[]);
   useEffect(()=>{
     let alive=true;
@@ -65,7 +69,7 @@ export function useDirectory(home:{id:string;label:string}) {
     const timer=setInterval(()=>void refresh().catch(()=>undefined),15_000);
     // Live: refresh about a second after any agent changes on an online host; the 15-second refresh is the fallback.
     const unwatch=hostsRef.current.filter(h=>h.status==="online").map(h=>watchAgents(getPaseoClient(h.serverId),()=>void refresh().catch(()=>undefined)));
-    return()=>{alive=false;refreshSequence.current++;clearInterval(timer);for(const off of unwatch)off();};
+    return()=>{alive=false;appliedSequence.current=refreshSequence.current;clearInterval(timer);for(const off of unwatch)off();};
   },[refresh,hostSignature]);
 
   // Only events observed after subscription are available. The official SDK has no public list API.

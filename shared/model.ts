@@ -245,7 +245,10 @@ export function attentionGroups(agents: readonly WorkbenchAgent[], projects: rea
     const group = groups.get(key) ?? { key, name: project ? project.name : "Not in a project (Coordinators and others)", serverId: project?.serverId ?? null, items: [] };
     // The workspace name only adds information when it differs from the project heading.
     const workspaceName = workspace && workspace.name !== project?.name ? workspace.name : null;
-    group.items.push({ serverId: agent.serverId, agentId: agent.agentId, title: agent.title, workspaceName, via: parentId ? parent?.title ?? parentId : null, kind, headline, details, since: agent.attentionSince ?? agent.updatedAt ?? null });
+    // Paseo's attention time belongs to its attention reason: a permission asked after an older "finished" gets the
+    // agent's last update instead (permission requests carry no time of their own).
+    const since = agent.attentionReason === kind ? agent.attentionSince : null;
+    group.items.push({ serverId: agent.serverId, agentId: agent.agentId, title: agent.title, workspaceName, via: parentId ? parent?.title ?? parentId : null, kind, headline, details, since: since ?? agent.updatedAt ?? null });
     groups.set(key, group);
   }
   const order = (a: AttentionItem, b: AttentionItem) => URGENCY[a.kind] - URGENCY[b.kind] || (b.since ?? "").localeCompare(a.since ?? "");

@@ -73,10 +73,11 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
 
   const saveCoordinator = (c: Coordinator) => onSave({ ...values, coordinators: values.coordinators.map((x) => (x.id === c.id ? c : x)) });
 
-  /** Returns the agent id once it runs and the server registered it as a Coordinator, else null. */
-  async function start(c: Coordinator, newGeneration = false): Promise<string | null> {
+  /** The running agent's id (null when none runs), and whether the server registered it for autonomy, which taking over agents and check-ins need. */
+  async function start(c: Coordinator, newGeneration = false): Promise<{ agentId: string | null; registered: boolean }> {
+    const none = { agentId: null, registered: false };
     const model = resolveModel(values.defaultModel, c.model);
-    if (!model) { setMessage({ kind: "error", text: "Choose a default model in Settings, or a model for this coordinator, first." }); return null; }
+    if (!model) { setMessage({ kind: "error", text: "Choose a default model in Settings, or a model for this coordinator, first." }); return none; }
     setBusy(c.id); setMessage(null); setOfferNew("");
     try {
       const home = await ensureHome({ coordinatorId: c.id });
@@ -88,11 +89,11 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
         // Same key, different settings: a live agent exists, an archived one used older settings, or another device is creating one now.
         // Re-checked on the explicit "Start new" click too; a create still in flight elsewhere at that instant is the remaining gap.
         const live = await findCoordinator(paseo, c.id);
-        if (live) { const note = await registerAgent(c, live.agentId); await directory.refresh(); setMessage({ kind: note ? "error" : "info", text: `${c.name} is already running.${note}` }); return note ? null : live.agentId; }
+        if (live) { const note = await registerAgent(c, live.agentId); await directory.refresh(); setMessage({ kind: note ? "error" : "info", text: `${c.name} is already running.${note}` }); return { agentId: live.agentId, registered: !note }; }
         if (!newGeneration) {
           setOfferNew(c.id);
           setMessage({ kind: "error", text: `${c.name}'s earlier agent used different settings and is no longer active, or another device is starting one right now. Refresh to check, or start a new one.` });
-          return null;
+          return none;
         }
       }
       if (!result || result.kind === "conflict" || result.archived) {
@@ -105,8 +106,8 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
       const note = result.archived ? "" : await registerAgent(c, result.agentId);
       setMessage({ kind: note ? "error" : "success", text: `${c.name} is running.${note}` });
       await directory.refresh();
-      return note || result.archived ? null : result.agentId;
-    } catch (e) { setMessage({ kind: "error", text: e instanceof Error ? e.message : String(e) }); void directory.refresh(); return null; }
+      return result.archived ? none : { agentId: result.agentId, registered: !note };
+    } catch (e) { setMessage({ kind: "error", text: e instanceof Error ? e.message : String(e) }); void directory.refresh(); return none; }
     finally { setBusy(""); }
   }
 
@@ -140,14 +141,14 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
   }
 
   /** Save a new coordinator entry and start its agent. `agentId` is null when it was saved but did not start. */
-  async function launch(entry: Coordinator): Promise<{ saved: boolean; agentId: string | null }> {
-    // Drop entries whose agent is gone (archived), so they never fill the 20-coordinator limit. Only when this host was
-    // read, and only entries over 10 minutes old, so one another device is starting right now is kept.
+  async function launch(entry: Coordinator): Promise<{ saved: boolean; agentId: string | null; registered: boolean }> {
+    // At the 20-coordinator limit, drop entries whose agent is gone (archived) to make room. Only when this host was read,
+    // and only entries over 10 minutes old, so one another device is starting right now is kept.
     // shortcut: age read from the "c-<base36 ms>" id; "default" (pre-alpha.7) has none and counts as old.
     const old = (c: Coordinator) => { const t = parseInt(c.id.slice(2), 36); return !c.id.startsWith("c-") || !(t > Date.now() - 600_000); };
-    const kept = hostReadable ? values.coordinators.filter((c) => liveAgent(c) || !old(c)) : values.coordinators;
-    if (!(await onSave({ ...values, coordinators: [...kept, entry] }))) { setMessage({ kind: "error", text: "Settings changed on another device; try again." }); return { saved: false, agentId: null }; }
-    return { saved: true, agentId: await start(entry) };
+    const kept = hostReadable && values.coordinators.length >= 20 ? values.coordinators.filter((c) => liveAgent(c) || !old(c)) : values.coordinators;
+    if (!(await onSave({ ...values, coordinators: [...kept, entry] }))) { setMessage({ kind: "error", text: "Settings changed on another device; try again." }); return { saved: false, agentId: null, registered: false }; }
+    return { saved: true, ...await start(entry) };
   }
 
   return { busy, message, setMessage, offerNew, tools, hostReadable, hostProjects, scoped, assignmentPills, liveAgent, briefFor, saveCoordinator, rename, renameInPaseo, start, refreshContext, launch, onSave, values, host, openAgent };
