@@ -313,9 +313,15 @@ export function withTeam(agents: readonly WorkbenchAgent[], serverId: string, ag
   return [agentId, ...agents.filter((a) => a.serverId === serverId && !a.archived && a.labels[SECOND_OPINION_FOR_LABEL] === agentId).map((a) => a.agentId)];
 }
 
-/** Finished Workbench specialists (top-level, done, not waiting on you), for "Archive finished specialists". */
+/** Archiving takes the review team along, so every member must be archivable too (a chair idles while its member still reviews). */
+export function teamArchivable(agents: readonly WorkbenchAgent[], agent: WorkbenchAgent): boolean {
+  const team = new Set(withTeam(agents, agent.serverId, agent.agentId));
+  return archivable(agent) && agents.every((a) => a.serverId !== agent.serverId || !team.has(a.agentId) || archivable(a));
+}
+
+/** Finished Workbench specialists (top-level, done, not waiting on you, nor is their team), for "Archive finished specialists". */
 export function finishedSpecialists(agents: readonly WorkbenchAgent[]): WorkbenchAgent[] {
-  return agents.filter((a) => a.labels[SPECIALIST_LABEL] && !a.labels[PARENT_AGENT_ID_LABEL] && archivable(a));
+  return agents.filter((a) => a.labels[SPECIALIST_LABEL] && !a.labels[PARENT_AGENT_ID_LABEL] && teamArchivable(agents, a));
 }
 
 /** The two numbers on the sidebar badge, counted like Workbench's header: what needs you, and what is working. */

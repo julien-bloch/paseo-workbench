@@ -5,6 +5,7 @@
 - "Needs attention" now means exactly Paseo's amber and red dots everywhere: per-project counts (project order, a coordinator's brief) no longer include finished agents.
 - Overview and a coordinator's agent tree mark finished agents **Finished**.
 - PR manager: brace expansion and globs outside quotes no longer pass its read-only command check (`gh api {-XDELETE,…}` was approved). Its push/merge deny rules now also cover `git -C <dir> push`, `gh -R … pr merge` and `gh api` merge or git-data/contents writes, and apply to one-time launches in a workspace, not only to coordinators. Launch says that a scheduled PR manager cannot get them.
+- Archive is no longer offered for a specialist whose second opinion or committee member is still working (archiving it took the running member along).
 - Coordinators start in the provider's auto mode when the host offers one (Claude `auto`, Codex `auto-review`), instead of whatever the host's default mode is.
 - Running rows are grey, so green only means finished. Running and Finished show at most 30 entries; the header's "working" count no longer includes archived agents.
 - Removed the stale root copies of the handoff and spec (`docs/` has the current ones) and stopped tracking `.claude/scheduled_tasks.lock`.

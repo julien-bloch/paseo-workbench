@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupProjects, hierarchyRows, projectKey, isAttention, isReadyToReview, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, withTeam, finishedSpecialists, sidebarCounts, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
+import { groupProjects, hierarchyRows, projectKey, isAttention, isReadyToReview, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, teamArchivable, withTeam, finishedSpecialists, sidebarCounts, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
 import { planLaunchMode, escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from '../.unit-dist/permissions.js';
 import { transcriptRows, transcriptText } from '../.unit-dist/transcript.js';
 import { parseQuestions, buildAnswers, toggleChoice } from '../.unit-dist/questions.js';
@@ -356,6 +356,10 @@ test('archive: only done, non-coordinator agents; a specialist goes with its rev
   assert.deepEqual([rev,member,busy,asking,coord,mine].map(archivable),[true,true,false,false,false,true]);
   assert.deepEqual(withTeam([rev,member,mine],'s','rev'),['rev','mem']);
   assert.deepEqual(finishedSpecialists([rev,member,busy,asking,coord,mine]).map(a=>a.agentId),['rev'],'not team members, busy, asking, coordinators or your own agents');
+  const reviewing={...member,status:'running'};
+  assert.equal(teamArchivable([rev,reviewing],rev),false,'a chair idling while its member still reviews is not offered');
+  assert.deepEqual(finishedSpecialists([rev,reviewing]).map(a=>a.agentId),[]);
+  assert.equal(teamArchivable([rev,member],rev),true);
 });
 
 test('sidebar counts: attention items like the header, plus agents running or starting',()=>{

@@ -1,6 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Pressable, Text, View } from "react-native";
-import { ago, archivable, hierarchyRows, isReadyToReview, type AttentionItem, type NativeSubagent, type WorkbenchAgent } from "../shared/model";
+import { ago, hierarchyRows, isReadyToReview, teamArchivable, type AttentionItem, type NativeSubagent, type WorkbenchAgent } from "../shared/model";
 import { Button, Notice, Status } from "./ui";
 
 /**
@@ -14,7 +14,7 @@ export function AgentTree({ theme, agents, native, attention, openAgent, onSumma
   onSummarize?: (agentId: string, serverId: string) => void; empty: string;
   /** Agents that can be released from their coordinator (made top-level again). */
   releasable?: ReadonlySet<string>; onRelease?: (agentId: string) => void;
-  /** Archive an agent that is done (see shared/model.ts `archivable`); omitted where not offered. */
+  /** Archive an agent that is done, with its review team (see shared/model.ts `teamArchivable`); omitted where not offered. */
   onArchive?: (agentId: string, serverId: string) => void;
 }) {
   const now = Date.now();
@@ -40,7 +40,7 @@ export function AgentTree({ theme, agents, native, attention, openAgent, onSumma
           </View>
           {onSummarize && row.kind === "managed" ? <Button theme={theme} subtle label="Summarize" onPress={() => onSummarize(row.agentId, row.serverId)} /> : null}
           {onRelease && row.kind === "managed" && releasable?.has(row.agentId) ? <Button theme={theme} subtle label="Release" onPress={() => onRelease(row.agentId)} /> : null}
-          {onArchive && agent && archivable(agent) ? <Button theme={theme} subtle label="Archive" onPress={() => onArchive(row.agentId, row.serverId)} /> : null}
+          {onArchive && agent && teamArchivable(agents, agent) ? <Button theme={theme} subtle label="Archive" onPress={() => onArchive(row.agentId, row.serverId)} /> : null}
         </View>
       </Pressable>;
     })}
