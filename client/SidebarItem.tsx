@@ -42,8 +42,8 @@ function isDark(color: string): boolean {
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
   return 0.2126 * r! + 0.7152 * g! + 0.0722 * b! < 128;
 }
-/** In Paseo's bucket order, with its own words (subagent pills) and the shape its sidebar draws for each. */
-const BUCKETS = [["needsInput", "needs input", "alert"], ["failed", "failed", "dot"], ["running", "working", "ring"], ["finished", "ready to review", "dot"]] as const;
+/** Left to right: what needs you (asking, then failed), what finished, what is working; Paseo's words (subagent pills) and the shape its sidebar draws for each. */
+const BUCKETS = [["needsInput", "needs input", "alert"], ["failed", "failed", "dot"], ["finished", "ready to review", "dot"], ["running", "working", "ring"]] as const;
 
 /** The Workbench sidebar row, with a count per Paseo status (dot colour as in Paseo's sidebar) for agents on this host. */
 export function SidebarItem({ currentScreen, openScreen, host, theme }: PluginSidebarItemProps) {
