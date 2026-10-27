@@ -50,7 +50,8 @@ export function SidebarItem({ currentScreen, openScreen, host, theme }: PluginSi
   const dir = useHostDirectory(host.id);
   const settings = useSettings(preferences);
   // Only agents checked in Overview count; until settings load, every agent does.
-  const agents = dir ? watchedAgents(dir.agents, settings.status === "ready" ? settings.values.unwatchedAgents : []) : null;
+  const unwatched = settings.status === "ready" ? { agents: settings.values.unwatchedAgents, projects: settings.values.unwatchedProjects } : { agents: [], projects: [] };
+  const agents = dir ? watchedAgents(dir.agents, dir.workspaces, unwatched) : null;
   const counts = dir && agents ? sidebarCounts(agents, groupProjects(dir.workspaces.filter((w) => !isCoordinatorHome(w.directory)), agents)) : null;
   const dots = DOTS[isDark(theme.colors.surface0) ? "dark" : "light"];
   const shown = counts ? BUCKETS.filter(([key]) => counts[key] > 0) : [];

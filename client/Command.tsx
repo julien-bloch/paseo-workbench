@@ -63,9 +63,8 @@ export function Command({ host, theme, layout, values, directory, projects, open
     return map;
   }, [directory.agents, projects]);
   const adopt = useRpc(adoptAgents);
-  // Stopped coordinators stay listed, with Start (a new agent with the saved settings), until removed or pruned at launch.
-  // The settings' built-in "default" entry was never launched unless it has an agent, so it is not listed otherwise.
-  const shown = values.coordinators.filter((c) => c.id !== "default" || coordinators.liveAgent(c));
+  // An archived coordinator is gone from Command; its saved entry is pruned at the next launch.
+  const shown = coordinators.hostReadable ? values.coordinators.filter((c) => coordinators.liveAgent(c)) : values.coordinators;
   if (!shown.length) return <Notice theme={theme} text="No coordinators running. Launch one from the Launch tab (Where it runs: Across projects)." />;
   const current = shown.find((c) => c.id === selected) ?? shown[0]!;
   const agent = coordinators.liveAgent(current);

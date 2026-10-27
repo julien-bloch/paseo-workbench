@@ -69,10 +69,18 @@ export function agentKey(agent: { serverId: string; agentId: string }): string {
   return `${agent.serverId}:${agent.agentId}`;
 }
 
-/** The agents Command and the sidebar badge count: all except those unchecked in Overview. */
-export function watchedAgents<T extends { serverId: string; agentId: string }>(agents: readonly T[], unwatched: readonly string[]): T[] {
-  const off = new Set(unwatched);
-  return agents.filter((a) => !off.has(agentKey(a)));
+/** The project key of an agent's workspace, or null when the workspace is not listed (e.g. a coordinator's home). */
+export function agentProjectKey(agent: { serverId: string; workspaceId: string }, workspaces: readonly { serverId: string; workspaceId: string; projectId: string }[]): string | null {
+  const w = workspaces.find((x) => x.serverId === agent.serverId && x.workspaceId === agent.workspaceId);
+  return w ? projectKey(w.serverId, w.projectId) : null;
+}
+
+/** The agents Command and the sidebar badge count: all except those unchecked in Overview, alone or by project. */
+export function watchedAgents<T extends { serverId: string; agentId: string; workspaceId: string }>(agents: readonly T[], workspaces: readonly WorkbenchWorkspace[],
+  unwatched: { agents: readonly string[]; projects: readonly string[] }): T[] {
+  const off = new Set(unwatched.agents), offProjects = new Set(unwatched.projects);
+  const projectOf = new Map(workspaces.map((w) => [`${w.serverId}:${w.workspaceId}`, projectKey(w.serverId, w.projectId)]));
+  return agents.filter((a) => !off.has(agentKey(a)) && !offProjects.has(projectOf.get(`${a.serverId}:${a.workspaceId}`) ?? ""));
 }
 
 export function projectKey(serverId: string, projectId: string): string {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.29 — 2026-10-26
+- Overview: a checkbox per project under the project filter. Unchecking one leaves all its agents, including later ones, out of Command and the sidebar badge; its agents' own checkboxes show unchecked and greyed.
+- Archiving a coordinator removes it from Workbench again (alpha.26 had kept it as "not running" with Start); its saved entry is pruned at the next launch.
+
 ## 0.1.0-alpha.28 — 2026-10-26
 - Overview: a checkbox on each agent decides whether Command (Needs attention, Running, Finished, the header counts) and the sidebar badge count it. Checked by default; unchecked agents stay in Overview and coordinator trees. Saved in this host's Workbench settings, so it survives reloads and other devices see it.
 - Command remembers which coordinator you were talking to when you open another Paseo chat and come back (while the app runs).

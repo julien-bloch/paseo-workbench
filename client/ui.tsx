@@ -44,6 +44,18 @@ export function Status({theme,status}:{theme:Theme;status:string}){
   const color=negative?theme.colors.statusDanger:positive?theme.colors.statusSuccess:theme.colors.statusWarning;
   return <Text style={{fontSize:11,color,fontWeight:"600"}}>{status}</Text>;
 }
+/** A 14px checkbox, optionally with a text label; pinned to the first line of wrapping text beside it. */
+export function Checkbox({theme,checked,onPress,label,accessibilityLabel,disabled=false}:{theme:Theme;checked:boolean;onPress:()=>void;label?:string;accessibilityLabel:string;disabled?:boolean}){
+  return <Pressable accessibilityRole="checkbox" accessibilityState={{checked,disabled}} aria-checked={checked} accessibilityLabel={accessibilityLabel} hitSlop={6}
+    // Not Pressable's `disabled`: a disabled Pressable lets the press reach the row around it (which opens the agent).
+    onPress={disabled?()=>undefined:onPress}
+    style={{flexDirection:"row",gap:6,alignItems:"center",opacity:disabled?0.45:1}}>
+    <View style={{width:14,height:14,borderRadius:3,borderWidth:1,borderColor:checked?theme.colors.accent:theme.colors.foregroundMuted,backgroundColor:checked?theme.colors.accent:"transparent",alignItems:"center",justifyContent:"center"}}>
+      {checked?<Text style={{color:theme.colors.accentForeground,fontSize:10,lineHeight:12,fontWeight:"800"}}>✓</Text>:null}
+    </View>
+    {label?<Text style={{color:theme.colors.foreground,fontSize:12}}>{label}</Text>:null}
+  </Pressable>;
+}
 export function Wrap({children}:{children:ReactNode}){
   return <View style={{flexDirection:"row",flexWrap:"wrap",alignItems:"center",gap:7}}>{children}</View>;
 }

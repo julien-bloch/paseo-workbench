@@ -126,6 +126,8 @@ export const preferences = defineSettings({
     // Agents unchecked in Overview ("serverId:agentId"): left out of Command's lists, its counts and the sidebar badge.
     // Agents are checked by default, so only the exceptions are stored.
     unwatchedAgents: z.array(z.string().max(200)).max(2000).default([]),
+    // Projects unchecked in Overview ("serverId:projectId"): all their agents, including later ones, are left out too.
+    unwatchedProjects: z.array(z.string().max(200)).max(500).default([]),
   }),
 });
 

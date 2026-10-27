@@ -142,11 +142,11 @@ export function useCoordinators({ host, values, onSave, directory, hostLabel, op
 
   /** Save a new coordinator entry and start its agent. `agentId` is null when it was saved but did not start. */
   async function launch(entry: Coordinator): Promise<{ saved: boolean; agentId: string | null; registered: boolean }> {
-    // At the 20-coordinator limit, drop entries whose agent is gone (archived) to make room. Only when this host was read,
-    // and only entries over 10 minutes old, so one another device is starting right now is kept.
+    // Drop entries whose agent is gone (archived): archiving a coordinator removes it from Workbench. Only when this host
+    // was read, and only entries over 10 minutes old, so one another device is starting right now is kept.
     // shortcut: age read from the "c-<base36 ms>" id; "default" (pre-alpha.7) has none and counts as old.
     const old = (c: Coordinator) => { const t = parseInt(c.id.slice(2), 36); return !c.id.startsWith("c-") || !(t > Date.now() - 600_000); };
-    const kept = hostReadable && values.coordinators.length >= 20 ? values.coordinators.filter((c) => liveAgent(c) || !old(c)) : values.coordinators;
+    const kept = hostReadable ? values.coordinators.filter((c) => liveAgent(c) || !old(c)) : values.coordinators;
     if (!(await onSave({ ...values, coordinators: [...kept, entry] }))) { setMessage({ kind: "error", text: "Settings changed on another device; try again." }); return { saved: false, agentId: null, registered: false }; }
     return { saved: true, ...await start(entry) };
   }

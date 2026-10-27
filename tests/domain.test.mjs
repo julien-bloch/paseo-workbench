@@ -364,11 +364,14 @@ test('archive: only done, non-coordinator agents; a specialist goes with its rev
   assert.equal(teamArchivable([rev,member],rev),true);
 });
 
-test('watched agents: everything except what was unchecked in Overview, keyed by host and agent',()=>{
+test('watched agents: everything except what was unchecked in Overview, by agent or by project',()=>{
   const a=ag('a'),b=ag('b'),other={...ag('a'),serverId:'pod'};
   assert.equal(agentKey(a),'mac:a');
-  assert.deepEqual(watchedAgents([a,b,other],['mac:a']).map(agentKey),['mac:b','pod:a'],'the same id on another host stays');
-  assert.deepEqual(watchedAgents([a,b],[]).length,2,'checked by default');
+  const none={agents:[],projects:[]};
+  assert.deepEqual(watchedAgents([a,b,other],[ws],{agents:['mac:a'],projects:[]}).map(agentKey),['mac:b','pod:a'],'the same id on another host stays');
+  assert.equal(watchedAgents([a,b],[ws],none).length,2,'checked by default');
+  const elsewhere=ag('c',{},'idle','home-ws');
+  assert.deepEqual(watchedAgents([a,b,elsewhere],[ws],{agents:[],projects:['mac:xdflow']}).map(agentKey),['mac:c'],'an unchecked project takes all its agents; others stay');
 });
 
 test('sidebar counts: Paseo\'s buckets (needs input, failed, working, ready to review)',()=>{

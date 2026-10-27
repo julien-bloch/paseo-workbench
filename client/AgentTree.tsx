@@ -1,7 +1,7 @@
 import type { PluginTheme } from "@getpaseo/plugin";
 import { Pressable, Text, View } from "react-native";
 import { ago, hierarchyRows, isReadyToReview, teamArchivable, type AttentionItem, type NativeSubagent, type WorkbenchAgent } from "../shared/model";
-import { Button, Notice, Status } from "./ui";
+import { Button, Checkbox, Notice, Status } from "./ui";
 
 /**
  * Who started what: managed agents nested by Paseo's parent label, provider-native children (live-only) under
@@ -16,8 +16,9 @@ export function AgentTree({ theme, agents, native, attention, openAgent, onSumma
   releasable?: ReadonlySet<string>; onRelease?: (agentId: string) => void;
   /** Archive an agent that is done, with its review team (see shared/model.ts `teamArchivable`); omitted where not offered. */
   onArchive?: (agentId: string, serverId: string) => void;
-  /** A checkbox per managed agent: whether Command and the sidebar badge count it (Overview only). */
-  watched?: (agentId: string, serverId: string) => boolean; onToggleWatched?: (agentId: string, serverId: string) => void;
+  /** A checkbox per managed agent: whether Command and the sidebar badge count it (Overview only). "project" when its
+   * project is unchecked: shown unchecked and disabled, the project decides. */
+  watched?: (agentId: string, serverId: string) => boolean | "project"; onToggleWatched?: (agentId: string, serverId: string) => void;
 }) {
   const now = Date.now();
   const color = { permission: theme.colors.statusWarning, error: theme.colors.statusDanger };
@@ -35,11 +36,8 @@ export function AgentTree({ theme, agents, native, attention, openAgent, onSumma
             <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-start" }}>
               {watched && onToggleWatched && row.kind === "managed" ? (() => {
                 const on = watched(row.agentId, row.serverId);
-                return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} accessibilityLabel={`Show ${row.title} in Command and the sidebar badge`} hitSlop={6}
-                  onPress={() => onToggleWatched(row.agentId, row.serverId)}
-                  style={{ width: 14, height: 14, marginTop: 2, borderRadius: 3, borderWidth: 1, borderColor: on ? theme.colors.accent : theme.colors.foregroundMuted, backgroundColor: on ? theme.colors.accent : "transparent", alignItems: "center", justifyContent: "center" }}>
-                  {on ? <Text style={{ color: theme.colors.accentForeground, fontSize: 10, lineHeight: 12, fontWeight: "800" }}>✓</Text> : null}
-                </Pressable>;
+                return <View style={{ marginTop: 2 }}><Checkbox theme={theme} checked={on === true} disabled={on === "project"} onPress={() => onToggleWatched(row.agentId, row.serverId)}
+                  accessibilityLabel={on === "project" ? `${row.title}: its project is unchecked` : `Show ${row.title} in Command and the sidebar badge`} /></View>;
               })() : null}
               <Text style={{ flexShrink: 1, color: theme.colors.foreground, fontSize: 13, fontWeight: row.depth === 0 ? "600" : "400" }}>{row.depth ? "↳ " : ""}{row.title}</Text>
             </View>
