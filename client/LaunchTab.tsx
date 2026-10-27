@@ -2,7 +2,7 @@ import type { PluginTheme } from "@getpaseo/plugin";
 import { getPaseoClient, useRpc } from "@getpaseo/plugin/client";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
-import { COORDINATOR_LABEL, DEFAULT_COORDINATOR, PARENT_AGENT_ID_LABEL, coordinatorInstructionsFor, ownCoordinatorInstructions, type Coordinator, type Preferences } from "../shared/settings";
+import { COORDINATOR_LABEL, DEFAULT_COORDINATOR, PARENT_AGENT_ID_LABEL, SPECIALIST_WRITER, coordinatorInstructionsFor, ownCoordinatorInstructions, type Coordinator, type Preferences } from "../shared/settings";
 import type { Assignment, ProjectGroup } from "../shared/model";
 import { adoptAgents, createSchedule } from "../shared/rpc";
 import { resolveModel } from "./actions";
@@ -29,7 +29,9 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
   const [profileId, setProfileId] = useState(values.helpers[0]?.id ?? "");
   const profile = values.helpers.find((h) => h.id === profileId) ?? values.helpers[0];
   const [where, setWhere] = useState<"workspace" | "projects">("workspace");
-  const scope = where;
+  // The Writer interviews the user and writes to their specialists folder; as a coordinator it would be told to stay in its workspaces.
+  const workspaceOnly = profile?.id === SPECIALIST_WRITER.id;
+  const scope = workspaceOnly ? "workspace" : where;
   // Coordinators run as one in either place: across chosen projects, or for a single workspace.
   const asCoordinator = scope === "projects" || !!profile?.coordinatorOnly;
   const [when, setWhen] = useState<"now" | "scheduled">("now");
@@ -117,7 +119,7 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
       {label("Where it runs")}
       <Wrap>
         <Choice theme={theme} label="In a workspace" selected={scope === "workspace"} onPress={() => setWhere("workspace")} />
-        <Choice theme={theme} label="Across projects" selected={scope === "projects"} onPress={() => setWhere("projects")} />
+        {workspaceOnly ? null : <Choice theme={theme} label="Across projects" selected={scope === "projects"} onPress={() => setWhere("projects")} />}
       </Wrap>
       {note(scope === "workspace" && asCoordinator
         ? "Runs as a coordinator for one workspace: keeps running, starts and manages agents there. Chat with it in Command."

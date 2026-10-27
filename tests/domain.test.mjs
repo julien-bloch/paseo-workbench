@@ -4,7 +4,7 @@ import { groupProjects, hierarchyRows, projectKey, isAttention, isReadyToReview,
 import { planLaunchMode, escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from '../.unit-dist/permissions.js';
 import { transcriptRows, transcriptText } from '../.unit-dist/transcript.js';
 import { parseQuestions, buildAnswers, toggleChoice } from '../.unit-dist/questions.js';
-import { migrateToV8, migrateToV9, coordinatorInstructionsFor, preferences, isCoordinatorHome } from '../.unit-dist/settings.js';
+import { migrateToV8, migrateToV9, migrateToV10, V9_REVIEWER_INSTRUCTIONS, V9_DEBUGGER_INSTRUCTIONS, coordinatorInstructionsFor, preferences, isCoordinatorHome } from '../.unit-dist/settings.js';
 import { coordinatorBrief, specialistPrompt } from '../.unit-dist/prompts.js';
 
 const ws={serverId:'mac',workspaceId:'work1',projectId:'xdflow',projectName:'XDFlow',name:'main',directory:'/src/xdflow',status:'running'};
@@ -332,7 +332,7 @@ test('import: Export JSON or a bare list; same id replaces; invalid or over-limi
 
 test('defaults: the specialist set, in order, generic, with the Reviewer on a committee',()=>{
   const fresh=preferences.schema.parse({});
-  assert.deepEqual(fresh.helpers.map(h=>h.id),['coordinator','reviewer','experiment-reviewer','debugger','session-summarizer','pr-manager']);
+  assert.deepEqual(fresh.helpers.map(h=>h.id),['coordinator','reviewer','experiment-reviewer','debugger','session-summarizer','pr-manager','specialist-writer']);
   assert.equal(fresh.helpers[0].name,'Coordinator');
   assert.equal(fresh.helpers.find(h=>h.id==='reviewer').defaultReview,'committee');
   assert.ok(fresh.helpers.find(h=>h.id==='coordinator').coordinatorOnly);
@@ -345,6 +345,20 @@ test('settings v9: an unchanged "General coordinator" becomes "Coordinator"; a c
   assert.equal(migrateToV9({helpers:[{id:'coordinator',name:'General coordinator'}]}).helpers[0].name,'Coordinator');
   assert.equal(migrateToV9({helpers:[{id:'coordinator',name:'Lead'}]}).helpers[0].name,'Lead');
   assert.equal(preferences.migrate({helpers:[{id:'coordinator',name:'General coordinator'}]},8).helpers[0].name,'Coordinator');
+});
+
+test('settings v10: unchanged Reviewer and Debugger get the new instructions, edited ones stay; the Writer is added once',()=>{
+  const fresh=preferences.schema.parse({}).helpers;
+  const now=(id)=>fresh.find(h=>h.id===id).instructions;
+  const kept=migrateToV10({helpers:[{id:'reviewer',instructions:'Mine'},{id:'debugger',instructions:'Mine too'}]});
+  assert.deepEqual(kept.helpers.map(h=>[h.id,h.instructions]),[['reviewer','Mine'],['debugger','Mine too'],['specialist-writer',fresh.find(h=>h.id==='specialist-writer').instructions]]);
+  const v9=fresh.filter(h=>h.id!=='specialist-writer').map(h=>h.id==='reviewer'?{...h,instructions:V9_REVIEWER_INSTRUCTIONS}:h.id==='debugger'?{...h,instructions:V9_DEBUGGER_INSTRUCTIONS}:h);
+  const updated=preferences.migrate({helpers:v9},9);
+  assert.deepEqual(updated.helpers,fresh);
+  assert.notEqual(now('reviewer'),V9_REVIEWER_INSTRUCTIONS);
+  assert.equal(migrateToV10(kept).helpers.length,3);
+  assert.equal(migrateToV10({helpers:Array.from({length:20},(_,i)=>({id:`c-${i}x`}))}).helpers.length,20);
+  assert.ok(preferences.schema.safeParse(updated).success);
 });
 
 test('archive: only done, non-coordinator agents; a specialist goes with its review team; bulk takes finished top-level specialists',()=>{

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0-alpha.30 — 2026-10-27
+- New built-in specialist **Writer**: asks how you work and writes your own specialists into your specialists folder, one Markdown file each, showing each file before writing it. It runs in a workspace only and is not read-only (its writes go through the provider's permission prompt). Existing hosts get it added unless they already have 20 specialists.
+- Reviewer: reviews what the change introduced, flags only code it can show is broken, gives each finding a priority (P0 to P3) and the conditions that trigger it, follows the project's AGENTS.md or CLAUDE.md, reports security issues only with a concrete exploit path, and ends with a verdict on whether the change is correct. Training/evaluation leakage now applies to data or ML code only.
+- Debugger: finds the root cause before proposing a fix (recent changes, working code to compare against, logging at component boundaries, one hypothesis at a time); temporary diagnostic edits are listed and reverted, and it does not fix the bug without your approval.
+- Reviewer and Debugger instructions you never edited are updated; edited ones are kept.
+- Settings: a committee or second-opinion default without a second reviewer model shows a note instead of a red error (launches run as a single review until one is picked).
+
 ## 0.1.0-alpha.29 — 2026-10-26
 - Overview: a checkbox per project under the project filter. Unchecking one leaves all its agents, including later ones, out of Command and the sidebar badge; its agents' own checkboxes show unchecked and greyed.
 - Archiving a coordinator removes it from Workbench again (alpha.26 had kept it as "not running" with Start); its saved entry is pruned at the next launch.

@@ -11,7 +11,7 @@ Workbench brings agent activity, coordinator conversations and specialist launch
 
 ## What it does
 
-- **Specialists**: launch a built-in or custom specialist (Coordinator, Reviewer, Experiment reviewer, Debugger, Session summarizer, PR manager, or your own) on uncommitted changes, a branch, a pull request, an agent's conversation or a task you describe. Pull-request reviews run in a separate Paseo worktree, reused for the same pull request.
+- **Specialists**: launch a built-in or custom specialist (Coordinator, Reviewer, Experiment reviewer, Debugger, Session summarizer, PR manager, Writer, or your own) on uncommitted changes, a branch, a pull request, an agent's conversation or a task you describe. Pull-request reviews run in a separate Paseo worktree, reused for the same pull request.
 - **Review modes**: a single review, a second opinion from another model, or a two-member committee that exchanges reviews and writes a consensus. Workbench relays the reports between the agents.
 - **Coordinators**: persistent agents for one workspace or several projects. Chat with them in Command, answer their questions there, and let them start, message and cancel agents. You can hand existing agents to a coordinator and release them later.
 - **Schedules**: recurring specialist runs in a workspace, or recurring check-ins for a coordinator, through Paseo's scheduler. Workspace schedules can be paused, resumed or deleted; check-ins can be removed.

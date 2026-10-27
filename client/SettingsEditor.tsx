@@ -147,7 +147,7 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
         {secondSummary?<Notice theme={theme} kind={secondSummary.readOnly?"success":"error"} text={`Second reviewer: ${secondSummary.text}`}/>:null}
         <Text style={{color:theme.colors.foreground,fontSize:12,fontWeight:"600"}}>Default review</Text>
         <Wrap>{([["single","Single"],["second-opinion","Second opinion"],["committee","Committee"]] as const).map(([id,label])=><Choice key={id} theme={theme} label={label} selected={draft.defaultReview===id} onPress={()=>updateSpecialist({defaultReview:id})}/>)}</Wrap>
-        {draft.defaultReview!=="single"&&!draft.secondOpinionModel?<Notice theme={theme} kind="error" text="This default needs a second reviewer model; without one, launches run single."/>:null}
+        {draft.defaultReview!=="single"&&!draft.secondOpinionModel?<Notice theme={theme} text="Pick a second reviewer model above to use this; until then, launches run as a single review."/>:null}
         </>}
         {invalid&&!badSkills.length?<Notice theme={theme} kind="error" text={`Cannot save: ${invalid}`}/>:null}
         {helper.changedElsewhere?<Notice theme={theme} kind="error" text="This profile was changed on another device since you started editing."/>:null}
