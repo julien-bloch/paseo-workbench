@@ -7,7 +7,7 @@ import { Button, Notice, Status } from "./ui";
  * Who started what: managed agents nested by Paseo's parent label, provider-native children (live-only) under
  * their parent, and on each node what it is waiting on from you, or that it finished since you last opened it.
  */
-export function AgentTree({ theme, agents, native, attention, openAgent, onSummarize, empty, releasable, onRelease, onArchive }: {
+export function AgentTree({ theme, agents, native, attention, openAgent, onSummarize, empty, releasable, onRelease, onArchive, watched, onToggleWatched }: {
   theme: PluginTheme; agents: readonly WorkbenchAgent[]; native: readonly NativeSubagent[];
   attention: ReadonlyMap<string, AttentionItem>; openAgent: (agentId: string, serverId: string) => void;
   /** Launch the Session summarizer on a managed agent; omitted where that is not possible. */
@@ -16,6 +16,8 @@ export function AgentTree({ theme, agents, native, attention, openAgent, onSumma
   releasable?: ReadonlySet<string>; onRelease?: (agentId: string) => void;
   /** Archive an agent that is done, with its review team (see shared/model.ts `teamArchivable`); omitted where not offered. */
   onArchive?: (agentId: string, serverId: string) => void;
+  /** A checkbox per managed agent: whether Command and the sidebar badge count it (Overview only). */
+  watched?: (agentId: string, serverId: string) => boolean; onToggleWatched?: (agentId: string, serverId: string) => void;
 }) {
   const now = Date.now();
   const color = { permission: theme.colors.statusWarning, error: theme.colors.statusDanger };
@@ -30,7 +32,17 @@ export function AgentTree({ theme, agents, native, attention, openAgent, onSumma
         style={({ pressed }) => ({ paddingLeft: Math.min(row.depth, 8) * 14, paddingVertical: 6, borderBottomWidth: 1, borderColor: theme.colors.border, backgroundColor: pressed ? theme.colors.surface2 : "transparent" })}>
         <View style={{ flexDirection: "row", gap: 8, justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", borderLeftWidth: mark ? 2 : 0, borderColor: mark ? mark.color : "transparent", paddingLeft: mark ? 8 : 0 }}>
           <View style={{ flex: 1, minWidth: 150, gap: 2 }}>
-            <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: row.depth === 0 ? "600" : "400" }}>{row.depth ? "↳ " : ""}{row.title}</Text>
+            <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-start" }}>
+              {watched && onToggleWatched && row.kind === "managed" ? (() => {
+                const on = watched(row.agentId, row.serverId);
+                return <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: on }} aria-checked={on} accessibilityLabel={`Show ${row.title} in Command and the sidebar badge`} hitSlop={6}
+                  onPress={() => onToggleWatched(row.agentId, row.serverId)}
+                  style={{ width: 14, height: 14, marginTop: 2, borderRadius: 3, borderWidth: 1, borderColor: on ? theme.colors.accent : theme.colors.foregroundMuted, backgroundColor: on ? theme.colors.accent : "transparent", alignItems: "center", justifyContent: "center" }}>
+                  {on ? <Text style={{ color: theme.colors.accentForeground, fontSize: 10, lineHeight: 12, fontWeight: "800" }}>✓</Text> : null}
+                </Pressable>;
+              })() : null}
+              <Text style={{ flexShrink: 1, color: theme.colors.foreground, fontSize: 13, fontWeight: row.depth === 0 ? "600" : "400" }}>{row.depth ? "↳ " : ""}{row.title}</Text>
+            </View>
             <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }} numberOfLines={2}>
               {row.kind === "native" ? "Native subagent (read-only, live-only; opens its parent) · " : ""}{[row.subtitle, ago(row.updatedAt, now)].filter(Boolean).join(" · ")}
             </Text>

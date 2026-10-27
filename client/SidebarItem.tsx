@@ -1,30 +1,30 @@
 import type { PluginSidebarItemProps } from "@getpaseo/plugin/client";
-import { usePaseo } from "@getpaseo/plugin/client";
+import { usePaseo, useSettings } from "@getpaseo/plugin/client";
 import { SidebarRow } from "@getpaseo/plugin/client/ui";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
-import { groupProjects, sidebarCounts, type SidebarCounts } from "../shared/model";
-import { isCoordinatorHome } from "../shared/settings";
+import { groupProjects, sidebarCounts, watchedAgents, type WorkbenchAgent, type WorkbenchWorkspace } from "../shared/model";
+import { isCoordinatorHome, preferences } from "../shared/settings";
 import { directoryForHost, watchAgents } from "./directory";
 
-/** This host's counts, refreshed about a second after any agent changes, and every 15 seconds. Null until read (or unreadable). */
-function useCounts(serverId: string) {
+/** This host's agents, refreshed about a second after any agent changes, and every 15 seconds. Null until read (or unreadable). */
+function useHostDirectory(serverId: string) {
   const paseo = usePaseo();
-  const [counts, setCounts] = useState<SidebarCounts | null>(null);
+  const [dir, setDir] = useState<{ agents: WorkbenchAgent[]; workspaces: WorkbenchWorkspace[] } | null>(null);
   useEffect(() => {
     let alive = true;
     const load = async () => {
       try {
-        const dir = await directoryForHost(paseo, serverId);
-        if (alive) setCounts(sidebarCounts(dir.agents, groupProjects(dir.workspaces.filter((w) => !isCoordinatorHome(w.directory)), dir.agents)));
-      } catch { if (alive) setCounts(null); }
+        const read = await directoryForHost(paseo, serverId);
+        if (alive) setDir(read);
+      } catch { if (alive) setDir(null); }
     };
     void load();
     const poll = setInterval(() => void load(), 15_000);
     const unwatch = watchAgents(paseo, () => void load());
     return () => { alive = false; clearInterval(poll); unwatch(); };
   }, [serverId]);
-  return counts;
+  return dir;
 }
 
 /**
@@ -47,7 +47,11 @@ const BUCKETS = [["needsInput", "needs input", "alert"], ["failed", "failed", "d
 
 /** The Workbench sidebar row, with a count per Paseo status (dot colour as in Paseo's sidebar) for agents on this host. */
 export function SidebarItem({ currentScreen, openScreen, host, theme }: PluginSidebarItemProps) {
-  const counts = useCounts(host.id);
+  const dir = useHostDirectory(host.id);
+  const settings = useSettings(preferences);
+  // Only agents checked in Overview count; until settings load, every agent does.
+  const agents = dir ? watchedAgents(dir.agents, settings.status === "ready" ? settings.values.unwatchedAgents : []) : null;
+  const counts = dir && agents ? sidebarCounts(agents, groupProjects(dir.workspaces.filter((w) => !isCoordinatorHome(w.directory)), agents)) : null;
   const dots = DOTS[isDark(theme.colors.surface0) ? "dark" : "light"];
   const shown = counts ? BUCKETS.filter(([key]) => counts[key] > 0) : [];
   const trailing = counts && shown.length ? <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>

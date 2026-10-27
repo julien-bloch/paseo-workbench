@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.28 — 2026-10-26
+- Overview: a checkbox on each agent decides whether Command (Needs attention, Running, Finished, the header counts) and the sidebar badge count it. Checked by default; unchecked agents stay in Overview and coordinator trees. Saved in this host's Workbench settings, so it survives reloads and other devices see it.
+- Command remembers which coordinator you were talking to when you open another Paseo chat and come back (while the app runs).
+
 ## 0.1.0-alpha.27 — 2026-10-26
 - Sidebar badge mimics Paseo: one count per status with Paseo's own marks, colours and sizes left to right: amber "!" needs input, red dot failed, green dot ready to review, blue dot in a ring working; zero counts hidden. It used to show one amber count and a grey "▶ n".
 

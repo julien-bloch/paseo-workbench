@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { groupProjects, hierarchyRows, projectKey, isAttention, isReadyToReview, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, teamArchivable, withTeam, finishedSpecialists, sidebarCounts, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
+import { groupProjects, hierarchyRows, projectKey, isAttention, isReadyToReview, attentionHeadline, hostGaps, permissionSummary, ago, attentionGroups, archivable, teamArchivable, withTeam, finishedSpecialists, sidebarCounts, watchedAgents, agentKey, projectState, toggleAssignedProject, toggleAssignedWorkspace } from '../.unit-dist/model.js';
 import { planLaunchMode, escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from '../.unit-dist/permissions.js';
 import { transcriptRows, transcriptText } from '../.unit-dist/transcript.js';
 import { parseQuestions, buildAnswers, toggleChoice } from '../.unit-dist/questions.js';
@@ -362,6 +362,13 @@ test('archive: only done, non-coordinator agents; a specialist goes with its rev
   assert.equal(teamArchivable([rev,reviewing],rev),false,'a chair idling while its member still reviews is not offered');
   assert.deepEqual(finishedSpecialists([rev,reviewing]).map(a=>a.agentId),[]);
   assert.equal(teamArchivable([rev,member],rev),true);
+});
+
+test('watched agents: everything except what was unchecked in Overview, keyed by host and agent',()=>{
+  const a=ag('a'),b=ag('b'),other={...ag('a'),serverId:'pod'};
+  assert.equal(agentKey(a),'mac:a');
+  assert.deepEqual(watchedAgents([a,b,other],['mac:a']).map(agentKey),['mac:b','pod:a'],'the same id on another host stays');
+  assert.deepEqual(watchedAgents([a,b],[]).length,2,'checked by default');
 });
 
 test('sidebar counts: Paseo\'s buckets (needs input, failed, working, ready to review)',()=>{

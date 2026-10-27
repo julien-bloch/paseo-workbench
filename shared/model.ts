@@ -64,6 +64,17 @@ export type AgentRow = {
   updatedAt: string;
 };
 
+/** An agent's key across hosts, as stored in settings (unwatchedAgents). */
+export function agentKey(agent: { serverId: string; agentId: string }): string {
+  return `${agent.serverId}:${agent.agentId}`;
+}
+
+/** The agents Command and the sidebar badge count: all except those unchecked in Overview. */
+export function watchedAgents<T extends { serverId: string; agentId: string }>(agents: readonly T[], unwatched: readonly string[]): T[] {
+  const off = new Set(unwatched);
+  return agents.filter((a) => !off.has(agentKey(a)));
+}
+
 export function projectKey(serverId: string, projectId: string): string {
   return `${serverId}:${projectId}`;
 }

@@ -123,6 +123,9 @@ export const preferences = defineSettings({
     coordinators: z.array(CoordinatorSchema).max(20).default([DEFAULT_COORDINATOR]),
     // A folder on this host of specialist Markdown files (see shared/specialistFiles.ts), read live. Empty: none.
     specialistsFolder: z.string().max(500).default(""),
+    // Agents unchecked in Overview ("serverId:agentId"): left out of Command's lists, its counts and the sidebar badge.
+    // Agents are checked by default, so only the exceptions are stored.
+    unwatchedAgents: z.array(z.string().max(200)).max(2000).default([]),
   }),
 });
 

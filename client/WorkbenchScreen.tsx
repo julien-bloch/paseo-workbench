@@ -3,7 +3,7 @@ import { getPaseoClient, useSettings } from "@getpaseo/plugin/client";
 import { useMemo, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { preferences, isCoordinatorHome, type Preferences } from "../shared/settings";
-import { attentionGroups, attentionHeadline, finishedSpecialists, groupProjects, isReadyToReview, isWorking, withTeam } from "../shared/model";
+import { agentKey, attentionGroups, attentionHeadline, finishedSpecialists, groupProjects, isReadyToReview, isWorking, watchedAgents, withTeam } from "../shared/model";
 import { useCoordinators } from "./Coordinators";
 import { LaunchTab } from "./LaunchTab";
 import { AttentionList } from "./AttentionList";
@@ -22,6 +22,11 @@ import { importSpecialists, mergeSpecialists } from "../shared/specialistFiles";
 
 type Tab="command"|"launch"|"overview"|"settings";
 
+// The coordinator chosen in Command, per host. Paseo unmounts this screen when you open another chat and evaluates
+// this module again when it comes back, so neither component state nor a module variable kept it; globalThis lasts
+// while the app runs (not across restarts).
+const selectedCoordinator=((globalThis as {__workbenchSelectedCoordinator?:Map<string,string>}).__workbenchSelectedCoordinator??=new Map<string,string>());
+
 export function WorkbenchScreen(props:PluginScreenProps) {
   const {theme}=props;
   const settings=useSettings(preferences);
@@ -36,7 +41,8 @@ export function WorkbenchScreen(props:PluginScreenProps) {
 function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:PluginScreenProps & {directory:ReturnType<typeof useDirectory>;values:Preferences;onSave:(next:Preferences)=>Promise<boolean>}){
   const [tab,setTab]=useState<Tab>("command");
   const [overviewFilter,setOverviewFilter]=useState("");
-  const [commandSelection,setCommandSelection]=useState("");
+  const [commandSelection,setSelection]=useState(()=>selectedCoordinator.get(host.id)??"");
+  const setCommandSelection=(id:string)=>{selectedCoordinator.set(host.id,id);setSelection(id)};
   const [importText,setImportText]=useState("");
   const [confirmBulk,setConfirmBulk]=useState(false);
   const [worktreesVersion,setWorktreesVersion]=useState(0);
@@ -44,11 +50,22 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
   const [message,setMessage]=useState<{kind:"info"|"error"|"success";text:string}|null>(null);
   // Coordinator homes are Workbench plumbing, not user projects.
   const projects=useMemo(()=>groupProjects(directory.workspaces.filter(w=>!isCoordinatorHome(w.directory)),directory.agents),[directory.workspaces,directory.agents]);
-  const attentionByProject=useMemo(()=>attentionGroups(directory.agents,projects),[directory.agents,projects]);
+  // Command and its counts follow the agents checked in Overview; Overview and coordinator trees show every agent.
+  const watched=useMemo(()=>watchedAgents(directory.agents,values.unwatchedAgents),[directory.agents,values.unwatchedAgents]);
+  const attentionByProject=useMemo(()=>attentionGroups(watched,projects),[watched,projects]);
   const attention=attentionByProject.flatMap(g=>g.items);
-  const attentionIndex=useMemo(()=>new Map(attention.map(i=>[`${i.serverId}:${i.agentId}`,i])),[attentionByProject]);
-  const running=directory.agents.filter(isWorking);
-  const readyToReview=directory.agents.filter(isReadyToReview);
+  const attentionIndex=useMemo(()=>new Map(attention.map(i=>[agentKey(i),i])),[attentionByProject]);
+  const allAttentionIndex=useMemo(()=>new Map(attentionGroups(directory.agents,projects).flatMap(g=>g.items).map(i=>[agentKey(i),i])),[directory.agents,projects]);
+  const running=watched.filter(isWorking);
+  const readyToReview=watched.filter(isReadyToReview);
+  const unwatched=new Set(values.unwatchedAgents);
+  /** Check or uncheck an agent in Overview: whether Command and the sidebar badge count it. */
+  async function toggleWatched(agentId:string,serverId:string){
+    const key=agentKey({agentId,serverId});
+    // shortcut: ids of archived agents are never pruned; the oldest go once the 2000-entry cap is reached.
+    const next=unwatched.has(key)?values.unwatchedAgents.filter(k=>k!==key):[...values.unwatchedAgents,key].slice(-2000);
+    if(!(await onSave({...values,unwatchedAgents:next})))setMessage({kind:"error",text:"Not saved: settings changed on another device, or the host could not be reached. Try again."});
+  }
   const unobserved=Object.keys(directory.errors).length;
   const headline=attentionHeadline(attention.length,unobserved,directory.updatedAt!==null);
   // Labels are display-only and can collide (two daemons on one machine); add the server id when they do.
@@ -129,15 +146,15 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
       <AttentionList theme={theme} groups={attentionByProject} hostSuffix={id=>id&&directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
     {tab==="command"?<Section theme={theme} title={`Running (${running.length})`}>
-      <RunningList theme={theme} agents={directory.agents} workspaces={directory.workspaces} needsYou={new Set(attentionIndex.keys())} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
+      <RunningList theme={theme} agents={watched} workspaces={directory.workspaces} needsYou={new Set(attentionIndex.keys())} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
     {tab==="command"?<Section theme={theme} title={`Finished (${readyToReview.length})`} subtitle="Paseo's green dot: finished since you last opened it. Opening it in Paseo clears it.">
-      <RunningList theme={theme} kind="finished" agents={directory.agents} workspaces={directory.workspaces} needsYou={new Set()} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
+      <RunningList theme={theme} kind="finished" agents={watched} workspaces={directory.workspaces} needsYou={new Set()} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
     {tab==="command"?<Command host={host} theme={theme} layout={layout} values={values} directory={directory} projects={projects} openAgent={openAgent} onSummarize={summarizeAction}
       coordinators={coordinators} selected={commandSelection} onSelect={setCommandSelection}/>:null}
     {tab==="overview"?<>
-      <Section theme={theme} title="All agents" subtitle="Who started what. Tap any agent to open it.">
+      <Section theme={theme} title="All agents" subtitle="Who started what. Tap any agent to open it. Unchecked agents are left out of Command and the sidebar badge.">
         <Notice theme={theme} text={`Native subagents are live-only: they appear only if they changed after ${directory.nativeSince?new Date(directory.nativeSince).toLocaleTimeString():"this screen opened"}.`}/>
         {Object.entries(directory.nativeErrors).map(([id,error])=><Notice key={id} theme={theme} kind="error" text={`${hostLabel(id)}: native subagent feed unavailable (${error}).`}/>)}
         <Wrap><Choice theme={theme} label="All projects" selected={!overviewFilter} onPress={()=>setOverviewFilter("")}/>
@@ -153,7 +170,8 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
             <Button theme={theme} subtle label={confirmBulk?`Confirm: archive ${finished.length} finished specialist${finished.length===1?"":"s"}`:`Archive finished specialists (${finished.length})`} onPress={()=>{if(!confirmBulk){setConfirmBulk(true);return;}setConfirmBulk(false);void archive(finished)}}/>
             {confirmBulk?<Button theme={theme} subtle label="Cancel" onPress={()=>setConfirmBulk(false)}/>:null}
           </Wrap>:null}
-          <AgentTree theme={theme} agents={agents} native={native} attention={attentionIndex} openAgent={openAgent} onSummarize={summarizeAction} onArchive={archiveOne} empty={unobserved?"No agents on reachable hosts with this filter.":"No agents found with this filter."}/></>;
+          <AgentTree theme={theme} agents={agents} native={native} attention={allAttentionIndex} openAgent={openAgent} onSummarize={summarizeAction} onArchive={archiveOne}
+            watched={(agentId,serverId)=>!unwatched.has(agentKey({agentId,serverId}))} onToggleWatched={(agentId,serverId)=>void toggleWatched(agentId,serverId)} empty={unobserved?"No agents on reachable hosts with this filter.":"No agents found with this filter."}/></>;
         })()}
       </Section>
       <Worktrees theme={theme} version={worktreesVersion}/>
