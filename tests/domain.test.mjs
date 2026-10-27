@@ -364,12 +364,12 @@ test('archive: only done, non-coordinator agents; a specialist goes with its rev
   assert.equal(teamArchivable([rev,member],rev),true);
 });
 
-test('sidebar counts: attention items like the header, plus agents running or starting',()=>{
+test('sidebar counts: Paseo\'s buckets (needs input, failed, working, ready to review)',()=>{
   const ag=(id,o={})=>({serverId:'s',agentId:id,workspaceId:'w',title:id,status:'idle',model:'',provider:'',updatedAt:'',labels:{},requiresAttention:false,pendingPermissionCount:0,archived:false,...o});
   const agents=[ag('ask',{requiresAttention:true,attentionReason:'permission',pendingPermissionCount:1}),ag('run',{status:'running'}),ag('init',{status:'initializing'}),ag('gone',{status:'running',archived:true}),ag('idle')];
   const projects=groupProjects([{serverId:'s',workspaceId:'w',projectId:'p',projectName:'P',name:'main',directory:'/x',status:'active'}],agents);
-  assert.deepEqual(sidebarCounts(agents,projects),{attention:attentionGroups(agents,projects).reduce((n,g)=>n+g.items.length,0),running:2});
-  assert.ok(sidebarCounts(agents,projects).attention>=1);
+  const more=[...agents,ag('broke',{status:'error'}),ag('done',{requiresAttention:true,attentionReason:'finished'})];
+  assert.deepEqual(sidebarCounts(more,projects),{needsInput:1,failed:1,running:2,finished:1},'Paseo\'s buckets; the archived runner is not counted');
 });
 
 test('questions keep each option\'s full information (description, preview)',()=>{

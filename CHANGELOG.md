@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.0-alpha.27 — 2026-10-26
+- Sidebar badge mimics Paseo: one count per status with Paseo's own marks, colours and sizes (amber "!" needs input, red dot failed, blue dot in a ring working, green dot ready to review), in Paseo's order; zero counts hidden. It used to show one amber count and a grey "▶ n".
+
 ## 0.1.0-alpha.26 — 2026-10-25
 - Command: a **Finished** section under Running lists every agent Paseo marks with a green dot (finished since you last opened it), subagents nested under the agent that started them; opening one in Paseo clears it. Finished agents are no longer listed under Needs attention or counted in the sidebar's amber badge, which now counts only permissions and failures.
 - "Needs attention" now means exactly Paseo's amber and red dots everywhere: per-project counts (project order, a coordinator's brief) no longer include finished agents.

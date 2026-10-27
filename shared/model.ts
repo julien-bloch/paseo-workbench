@@ -327,10 +327,15 @@ export function finishedSpecialists(agents: readonly WorkbenchAgent[]): Workbenc
   return agents.filter((a) => a.labels[SPECIALIST_LABEL] && !a.labels[PARENT_AGENT_ID_LABEL] && teamArchivable(agents, a));
 }
 
-/** The two numbers on the sidebar badge, counted like Workbench's header: what needs you, and what is working. */
-export function sidebarCounts(agents: readonly WorkbenchAgent[], projects: readonly ProjectGroup[]): { attention: number; running: number } {
+export type SidebarCounts = { needsInput: number; failed: number; running: number; finished: number };
+
+/** The sidebar badge's numbers, in Paseo's status buckets: asking you, failed, working, and finished since you looked. */
+export function sidebarCounts(agents: readonly WorkbenchAgent[], projects: readonly ProjectGroup[]): SidebarCounts {
+  const items = attentionGroups(agents, projects).flatMap((g) => g.items);
   return {
-    attention: attentionGroups(agents, projects).reduce((n, g) => n + g.items.length, 0),
+    needsInput: items.filter((i) => i.kind === "permission").length,
+    failed: items.filter((i) => i.kind === "error").length,
     running: agents.filter(isWorking).length,
+    finished: agents.filter(isReadyToReview).length,
   };
 }
