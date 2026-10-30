@@ -94,6 +94,13 @@ export const renameCoordinator = defineRpc({
   output: z.object({ ok: z.boolean() }),
 });
 
+/** Whether this host's settings turn on the "Open Workbench" header button (read where useSettings is not available). */
+export const headerButtonSetting = defineRpc({
+  name: "workbench.header_button",
+  input: z.object({}),
+  output: z.object({ enabled: z.boolean() }),
+});
+
 /** Worktree workspaces on this host, with what removing one would lose. */
 export const worktreeRow = z.object({
   workspaceId: z.string(), name: z.string(), project: z.string(), directory: z.string(), status: z.string(), activityAt: z.string().nullable(),

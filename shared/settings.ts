@@ -136,6 +136,8 @@ export const preferences = defineSettings({
     unwatchedAgents: z.array(z.string().max(200)).max(2000).default([]),
     // Projects unchecked in Overview ("serverId:projectId"): all their agents, including later ones, are left out too.
     unwatchedProjects: z.array(z.string().max(200)).max(500).default([]),
+    // An "Open Workbench" button in every workspace header (client/headerButtons.ts). Off by default: it takes header room.
+    headerButton: z.boolean().default(false),
   }),
 });
 

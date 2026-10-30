@@ -16,6 +16,7 @@ Workbench brings agent activity, coordinator conversations and specialist launch
 - **Coordinators**: persistent agents for one workspace or several projects. Chat with them in Command, answer their questions there, and let them start, message and cancel agents. You can hand existing agents to a coordinator and release them later.
 - **Schedules**: recurring specialist runs in a workspace, or recurring check-ins for a coordinator, through Paseo's scheduler. Workspace schedules can be paused, resumed or deleted; check-ins can be removed.
 - **Your own specialists**: read from Markdown files in a folder you choose on the host, or imported from another host's export. Each specialist can name skills the agent is told to load first.
+- **Open Workbench button**: optional, off by default. Turn it on in Settings to get a button in every workspace header that opens Workbench from any chat.
 - **Cleanup**: archive finished agents from Overview, and remove worktrees with Paseo's archive after seeing whether they hold uncommitted changes.
 
 ## Data and storage

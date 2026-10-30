@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.0-alpha.31 — 2026-10-30
+- Optional **Open Workbench** button in every workspace header (on phones and narrow windows, a row of the workspace menu ···). Off by default; turn it on in Settings > Workbench button. Saved in this host's Workbench settings; other devices pick up a change when they next load Workbench.
+
 ## 0.1.0-alpha.30 — 2026-10-27
 - New built-in specialist **Writer**: asks how you work and writes your own specialists into your specialists folder, one Markdown file each, showing each file before writing it. It runs in a workspace only and is not read-only (its writes go through the provider's permission prompt). Existing hosts get it added unless they already have 20 specialists.
 - Reviewer: reviews what the change introduced, flags only code it can show is broken, gives each finding a priority (P0 to P3) and the conditions that trigger it, follows the project's AGENTS.md or CLAUDE.md, reports security issues only with a concrete exploit path, and ends with a verdict on whether the change is correct. Training/evaluation leakage now applies to data or ML code only.

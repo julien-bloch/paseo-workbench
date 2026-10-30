@@ -8,7 +8,8 @@ import { describeMode } from "./SpecialistLaunch";
 import { useDraft } from "./useDraft";
 import type { FolderState } from "./folder";
 import { ModelPicker, useCatalog } from "./catalog";
-import { Button, Choice, Field, Notice, Section, Wrap } from "./ui";
+import { Button, Checkbox, Choice, Field, Notice, Section, Wrap } from "./ui";
+import { refreshHeaderButtons } from "./headerButtons";
 
 const EXAMPLE=`reviewer.md  (named like a built-in: replaces it)
 
@@ -93,6 +94,16 @@ export function SettingsEditor({theme,values,onSave,folder}:{theme:PluginTheme;v
         <Button theme={theme} label={busy?"Saving…":"Save default model"} disabled={busy} onPress={()=>void save({...values,...provider.draft},!sameValue({defaultModel:values.defaultModel},provider.base))}/>
         <Button theme={theme} label="Undo changes" subtle disabled={busy} onPress={provider.discard}/>
       </Wrap>
+    </Section>
+    <Section theme={theme} title="Workbench button" subtitle="A button in every workspace's header that opens Workbench. On phones and narrow windows it is a row of the workspace menu (···). Other devices pick up a change when they next load Workbench.">
+      <Checkbox theme={theme} label="Show the Open Workbench button" accessibilityLabel="Show the Open Workbench button in workspace headers" checked={values.headerButton} disabled={busy}
+        onPress={()=>void (async()=>{
+          setBusy(true);setNotice(null);
+          try{
+            if(await onSave({...values,headerButton:!values.headerButton}))refreshHeaderButtons();
+            else setNotice({kind:"error",text:"Not saved: settings changed on another device, or the host could not be reached. Try again."});
+          }finally{setBusy(false)}
+        })()}/>
     </Section>
     <Section theme={theme} title="Your specialists folder" subtitle="Optional. A folder on this host with one Markdown file per specialist, for example in your own dotfiles repository. A file named like a built-in (reviewer.md) replaces it; any other file adds a specialist. Read live: edit the files, not here.">
       <Field theme={theme} label="Folder path on this host" value={folderPath.draft.specialistsFolder} onChangeText={specialistsFolder=>folderPath.setDraft({specialistsFolder})} placeholder="~/dotfiles/workbench-specialists"/>
