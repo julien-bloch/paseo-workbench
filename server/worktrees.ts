@@ -1,6 +1,9 @@
 import { execFile } from "node:child_process";
-import type { PaseoAgent, PaseoApi, PaseoWorkspace } from "@getpaseo/client";
+import type { PluginHandlerContext } from "@getpaseo/plugin/server";
+import type { AgentSnapshotPayload as PaseoAgent, WorkspaceDescriptorPayload as PaseoWorkspace } from "@getpaseo/protocol/messages";
 import { PR_REVIEW_TITLE, type WorktreeRow } from "../shared/rpc";
+
+type PaseoApi = PluginHandlerContext["paseo"];
 
 async function all<T>(page: (cursor?: string) => Promise<{ entries: T[]; pageInfo: { hasMore: boolean; nextCursor?: string | null } }>): Promise<T[]> {
   const items: T[] = [];

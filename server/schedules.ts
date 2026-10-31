@@ -1,9 +1,11 @@
-import type { PaseoApi } from "@getpaseo/client";
 import type { RpcInput } from "@getpaseo/plugin";
+import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { escalation } from "../shared/permissions";
 import type { ScheduleRow, createSchedule } from "../shared/rpc";
 import { cli } from "./cli";
 import { readState, updateState } from "./state";
+
+type PaseoApi = PluginHandlerContext["paseo"];
 
 /** Every schedule Workbench creates is named with this prefix; the list shows only those. */
 export const PREFIX = "Workbench: ";

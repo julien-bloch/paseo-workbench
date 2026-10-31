@@ -1,9 +1,10 @@
 import { createHash } from "node:crypto";
-import type { PaseoApi } from "@getpaseo/client";
-import type { PluginServerContext } from "@getpaseo/plugin/server";
+import type { PluginHandlerContext, PluginServerContext } from "@getpaseo/plugin/server";
 import { SPECIALIST_LABEL, PARENT_AGENT_ID_LABEL, SECOND_OPINION_FOR_LABEL } from "../shared/settings";
 import { COMMITTEE_MARKER, SECOND_OPINION_MARKER } from "../shared/prompts";
 import { readState, updateState } from "./state";
+
+type PaseoApi = PluginHandlerContext["paseo"];
 
 const MAX_REPORT_CHARS = 60_000;
 const RETRY_MS = 5_000;

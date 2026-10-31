@@ -1,10 +1,12 @@
-import type { PaseoApi } from "@getpaseo/client";
+import type { getPaseoClient } from "@getpaseo/plugin/client";
 import type { Specialist, Preferences } from "../shared/settings";
 import type { ProjectGroup, WorkbenchWorkspace } from "../shared/model";
 import { COORDINATOR_ID_LABEL, COORDINATOR_LABEL, COORDINATOR_VALUE, SPECIALIST_LABEL, PARENT_AGENT_ID_LABEL, SECOND_OPINION_FOR_LABEL } from "../shared/settings";
 import { specialistPrompt, type PrWatch, type SpecialistScope } from "../shared/prompts";
 import { transcriptRows, transcriptText } from "../shared/transcript";
 import { planLaunchMode, providerOf, secondReviewerModeId, type LaunchMode } from "../shared/permissions";
+
+type PaseoApi = ReturnType<typeof getPaseoClient>;
 
 /** Explicit choice only: a profile override, else the saved default. Workbench never guesses a model. */
 export function resolveModel(saved:string, override:string):string {

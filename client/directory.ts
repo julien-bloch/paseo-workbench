@@ -1,6 +1,8 @@
-import type { PaseoAgent, PaseoApi, PaseoWorkspace } from "@getpaseo/client";
-import type { SessionOutboundMessage } from "@getpaseo/protocol/messages";
+import type { getPaseoClient } from "@getpaseo/plugin/client";
+import type { AgentSnapshotPayload as PaseoAgent, SessionOutboundMessage, WorkspaceDescriptorPayload as PaseoWorkspace } from "@getpaseo/protocol/messages";
 import { permissionSummary, type NativeSubagent, type WorkbenchAgent, type WorkbenchWorkspace } from "../shared/model";
+
+type PaseoApi = ReturnType<typeof getPaseoClient>;
 
 // React-free so integration tests can run it against a real daemon.
 async function allWorkspaces(paseo:PaseoApi):Promise<{items:PaseoWorkspace[];truncated:boolean}> {
