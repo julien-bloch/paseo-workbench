@@ -1,10 +1,11 @@
 import { realpath } from "node:fs/promises";
-import type { PaseoApi } from "@getpaseo/client";
-import type { PluginServerContext, PluginSettings } from "@getpaseo/plugin/server";
+import type { PluginHandlerContext, PluginServerContext, PluginSettings } from "@getpaseo/plugin/server";
 import { COORDINATOR_AUTO_APPROVED_TOOLS, COORDINATOR_ID_LABEL, COORDINATOR_LABEL, COORDINATOR_VALUE, PARENT_AGENT_ID_LABEL, type preferences } from "../shared/settings";
 import { escalation, isReadOnlyPrCommand, prManagerRequestAllowed } from "../shared/permissions";
 import { legacyHomeFor, prepareHome } from "./context";
 import { readState, updateState } from "./state";
+
+type PaseoApi = PluginHandlerContext["paseo"];
 
 const PASEO_TOOL = /^mcp__paseo__([a-z_]+)$/;
 type Request = { id: string; kind: string; name: string; input?: unknown; detail?: unknown };

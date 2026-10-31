@@ -1,7 +1,9 @@
-import type { PaseoApi } from "@getpaseo/client";
+import type { PluginHandlerContext } from "@getpaseo/plugin/server";
 import { COORDINATOR_LABEL, PARENT_AGENT_ID_LABEL } from "../shared/settings";
 import { cli } from "./cli";
 import { readState } from "./state";
+
+type PaseoApi = PluginHandlerContext["paseo"];
 
 /** Rename a registered Coordinator's agent (the SDK cannot change an agent's title; the CLI can). */
 export async function renameCoordinatorAgent(agentId: string, name: string) {

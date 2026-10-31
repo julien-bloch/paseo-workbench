@@ -1,5 +1,5 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import type { PaseoAgent } from "@getpaseo/client";
+import type { AgentSnapshotPayload as PaseoAgent } from "@getpaseo/protocol/messages";
 import { getPaseoClient, useRpc } from "@getpaseo/plugin/client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, ScrollView, Text, TextInput, View } from "react-native";

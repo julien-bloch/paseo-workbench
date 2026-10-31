@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.1.0-alpha.32 — 2026-10-31
+- Installs on Paseo 0.14: Workbench no longer imports types from `@getpaseo/client`, which Paseo 0.14 rejects in a plugin installed from git ("Could not resolve type dependency").
+
 ## 0.1.0-alpha.31 — 2026-10-30
 - Optional **Open Workbench** button in every workspace header (on phones and narrow windows, a row of the workspace menu ···). Off by default; turn it on in Settings > Workbench button. Saved in this host's Workbench settings; other devices pick up a change when they next load Workbench.
 

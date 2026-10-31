@@ -1,7 +1,6 @@
 import type { PluginTheme } from "@getpaseo/plugin";
-import type { PaseoApi } from "@getpaseo/client";
 import { useState } from "react";
-import { useRpc } from "@getpaseo/plugin/client";
+import { useRpc, type getPaseoClient } from "@getpaseo/plugin/client";
 import { createSchedule, registerSecondOpinion } from "../shared/rpc";
 import { Text, View } from "react-native";
 import type { Preferences } from "../shared/settings";
@@ -11,6 +10,8 @@ import { createSpecialist, promptInput, resolveModel, type ReviewMode } from "./
 import { specialistPrompt } from "../shared/prompts";
 import type { PrWatch, SpecialistScope } from "../shared/prompts";
 import { Button, Choice, Field, Notice, Section, Wrap } from "./ui";
+
+type PaseoApi = ReturnType<typeof getPaseoClient>;
 
 export interface SpecialistLaunchProps {
   theme:PluginTheme;
