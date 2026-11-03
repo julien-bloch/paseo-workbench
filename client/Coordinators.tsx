@@ -244,8 +244,8 @@ export const assignmentSummary = (a: Assignment) => !a.projectIds.length && !a.w
   : [a.projectIds.length ? `${a.projectIds.length} project(s)` : "", a.workspaceIds.length ? `${a.workspaceIds.length} workspace(s)` : ""].filter(Boolean).join(", ");
 
 /**
- * Pick what a Coordinator coordinates: "Every project", or tap projects to take all of each (its workspaces then
- * show below) and tap workspaces to narrow it to those. ✓ is all of a project, ◐ some of its workspaces.
+ * Pick projects and workspaces: "Every project", or tap projects to take all of each (its workspaces then show
+ * below) and tap workspaces to narrow it to those. ✓ is all of a project, ◐ some of its workspaces.
  */
 export function AssignmentPicker({ theme, projects, value, onChange }: {
   theme: PluginTheme; projects: readonly ProjectGroup[]; value: Assignment; onChange: (next: Assignment) => void;
@@ -266,7 +266,7 @@ export function AssignmentPicker({ theme, projects, value, onChange }: {
     {projects.filter((p) => p.workspaces.length > 1 && projectState(value, p) !== "none").map((p) => {
       const all = projectState(value, p) === "all";
       return <View key={p.projectId} style={{ gap: 6, paddingLeft: 12, borderLeftWidth: 2, borderColor: theme.colors.border }}>
-        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>{p.name}: tap workspaces to coordinate only those</Text>
+        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>{p.name}</Text>
         <Wrap>{p.workspaces.map((w) => {
           const on = all || value.workspaceIds.includes(w.workspaceId);
           return <Choice key={w.workspaceId} theme={theme} label={`${on ? "✓ " : ""}${w.name}`} selected={on} onPress={() => onChange(toggleAssignedWorkspace(value, p, w.workspaceId))} />;

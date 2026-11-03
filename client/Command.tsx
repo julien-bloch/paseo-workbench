@@ -65,7 +65,7 @@ export function Command({ host, theme, layout, values, directory, projects, open
   const adopt = useRpc(adoptAgents);
   // An archived coordinator is gone from Command; its saved entry is pruned at the next launch.
   const shown = coordinators.hostReadable ? values.coordinators.filter((c) => coordinators.liveAgent(c)) : values.coordinators;
-  if (!shown.length) return <Notice theme={theme} text="No coordinators running. Launch one from the Launch tab (Where it runs: Across projects)." />;
+  if (!shown.length) return <Notice theme={theme} text="No coordinators running. Launch one from the Launch tab (pick the Coordinator, or more than one workspace)." />;
   const current = shown.find((c) => c.id === selected) ?? shown[0]!;
   const agent = coordinators.liveAgent(current);
   const team = agent ? subtree(directory.agents, agent.agentId, host.id) : [];

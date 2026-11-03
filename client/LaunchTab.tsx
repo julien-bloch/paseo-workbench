@@ -3,11 +3,11 @@ import { getPaseoClient, useRpc } from "@getpaseo/plugin/client";
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { COORDINATOR_LABEL, DEFAULT_COORDINATOR, PARENT_AGENT_ID_LABEL, SPECIALIST_WRITER, coordinatorInstructionsFor, ownCoordinatorInstructions, type Coordinator, type Preferences } from "../shared/settings";
-import type { Assignment, ProjectGroup } from "../shared/model";
+import { toggleAssignedWorkspace, type Assignment, type ProjectGroup } from "../shared/model";
 import { adoptAgents, createSchedule } from "../shared/rpc";
 import { resolveModel } from "./actions";
 import { ModelPicker, useCatalog } from "./catalog";
-import { AssignmentPicker, assignmentSummary, type CoordinatorActions } from "./Coordinators";
+import { AssignmentPicker, type CoordinatorActions } from "./Coordinators";
 import { SpecialistLaunch } from "./SpecialistLaunch";
 import { Schedules } from "./Schedules";
 import { Button, Choice, Field, Notice, Section, Wrap } from "./ui";
@@ -18,8 +18,9 @@ const CHECK_IN = "[Workbench check-in] Review the agents in your projects: follo
 const PR_CHECK_IN = "[Workbench check-in] Check the pull requests you watch, as described in your instructions, and report what changed and what needs me.";
 
 /**
- * One launch form: what to launch, where it runs (in one workspace, or across projects as a coordinator that
- * manages agents), when (one time, or on a Paseo schedule), then its details and a single launch button.
+ * One launch form: what to launch, where it runs (one workspace runs a specialist there once; several, or whole
+ * projects, run it as a coordinator that manages agents), when (one time, or on a Paseo schedule), then its details
+ * and a single launch button.
  */
 export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coordinators, openAgent, onCoordinatorLaunched }: {
   theme: PluginTheme; values: Preferences; projects: readonly ProjectGroup[]; hostLabel: (serverId: string) => string; multiHost: boolean;
@@ -28,12 +29,8 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
   const catalog = useCatalog();
   const [profileId, setProfileId] = useState(values.helpers[0]?.id ?? "");
   const profile = values.helpers.find((h) => h.id === profileId) ?? values.helpers[0];
-  const [where, setWhere] = useState<"workspace" | "projects">("workspace");
   // The Writer interviews the user and writes to their specialists folder; as a coordinator it would be told to stay in its workspaces.
   const workspaceOnly = profile?.id === SPECIALIST_WRITER.id;
-  const scope = workspaceOnly ? "workspace" : where;
-  // Coordinators run as one in either place: across chosen projects, or for a single workspace.
-  const asCoordinator = scope === "projects" || !!profile?.coordinatorOnly;
   const [when, setWhen] = useState<"now" | "scheduled">("now");
   const [cadence, setCadence] = useState<string>(CADENCES[1][1]);
   const [customCron, setCustomCron] = useState("");
@@ -41,18 +38,22 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
   const cadenceLabel = CADENCES.find(([, c]) => c === cadence)?.[0] ?? "Custom";
   const schedule = when === "scheduled" ? { cron, timezone: TIMEZONE, label: cadence ? cadenceLabel : `on "${cron}"` } : null;
   const [schedulesVersion, setSchedulesVersion] = useState(0);
-  // In a workspace
-  const [projectKey, setProjectKey] = useState("");
-  const [workspaceId, setWorkspaceId] = useState("");
-  // A coordinator reaches only its own host's workspaces.
-  const pickable = profile?.coordinatorOnly ? coordinators.hostProjects : projects;
-  const project = pickable.find((p) => p.key === projectKey) ?? pickable[0];
-  // Pin the default target, so a re-sorted directory poll never moves where you are about to launch.
-  useEffect(() => { if (!projectKey && projects[0]) setProjectKey(projects[0].key); }, [projectKey, projects]);
-  const workspace = project?.workspaces.find((w) => w.workspaceId === workspaceId) ?? project?.workspaces[0];
-  // Across projects
-  const [assignment, setAssignment] = useState<Assignment>({ projectIds: [], workspaceIds: [] });
-  const { projectIds, workspaceIds } = scope === "workspace" ? { projectIds: [] as string[], workspaceIds: workspace ? [workspace.workspaceId] : [] } : assignment;
+  // Where it runs: this host's projects and workspaces, or one workspace on another host (a coordinator reaches only its own host's).
+  const [picked, setPicked] = useState<Assignment | null>(null);
+  const first = coordinators.hostProjects[0];
+  // Pin the default target (this host's first workspace), so a re-sorted directory poll never moves where you are about to launch.
+  useEffect(() => { if (!picked && first?.workspaces[0]) setPicked(toggleAssignedWorkspace({ projectIds: [], workspaceIds: [] }, first, first.workspaces[0].workspaceId)); }, [picked, first]);
+  const [elsewhereKey, setElsewhereKey] = useState("");
+  const others = multiHost && !profile?.coordinatorOnly ? projects.filter((p) => p.serverId !== coordinators.host.id) : [];
+  const elsewhere = others.flatMap((p) => p.workspaces).find((w) => `${w.serverId}:${w.workspaceId}` === elsewhereKey);
+  const assignment: Assignment = elsewhere ? { projectIds: [], workspaceIds: [elsewhere.workspaceId] } : picked ?? { projectIds: [], workspaceIds: [] };
+  const { projectIds, workspaceIds } = assignment;
+  const every = !projectIds.length && !workspaceIds.length;
+  const chosen = elsewhere ? [elsewhere] : every ? [] : coordinators.hostProjects.flatMap((p) => p.workspaces.filter((w) => projectIds.includes(p.projectId) || workspaceIds.includes(w.workspaceId)));
+  // Exactly one workspace: a specialist works on one task there, then stops. Anything more runs it as a coordinator.
+  const workspace = chosen.length === 1 ? chosen[0] : undefined;
+  const project = workspace && projects.find((p) => p.serverId === workspace.serverId && p.projectId === workspace.projectId);
+  const asCoordinator = !!profile?.coordinatorOnly || (!workspace && !workspaceOnly);
   const [prScope, setPrScope] = useState<Coordinator["prScope"]>(["mine"]);
   const [model, setModel] = useState("");
   const [name, setName] = useState("");
@@ -65,7 +66,6 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
   const adopt = useRpc(adoptAgents);
   const [adoptIds, setAdoptIds] = useState<string[]>([]);
   // Existing top-level agents in the projects it will coordinate, newest first.
-  const every = !projectIds.length && !workspaceIds.length;
   const candidates = projects.filter((p) => p.serverId === coordinators.host.id)
     .flatMap((p) => p.agents.filter((a) => every || projectIds.includes(p.projectId) || workspaceIds.includes(a.workspaceId))).filter((a) => !a.archived && a.status !== "closed" && !a.labels[PARENT_AGENT_ID_LABEL] && !a.labels[COORDINATOR_LABEL])
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -117,15 +117,14 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
       {profile ? note(profile.description) : <Notice theme={theme} text="No specialists. Add one in Settings." />}
 
       {label("Where it runs")}
-      <Wrap>
-        <Choice theme={theme} label="In a workspace" selected={scope === "workspace"} onPress={() => setWhere("workspace")} />
-        {workspaceOnly ? null : <Choice theme={theme} label="Across projects" selected={scope === "projects"} onPress={() => setWhere("projects")} />}
-      </Wrap>
-      {note(scope === "workspace" && asCoordinator
-        ? "Runs as a coordinator for one workspace: keeps running, starts and manages agents there. Chat with it in Command."
-        : scope === "workspace"
-        ? "Works on one task in one workspace, then stops."
-        : `Runs as a coordinator${!profile || ownCoordinatorInstructions(profile) ? "" : ` with ${profile.name}'s expertise`}: keeps running, watches the projects you choose, and starts and manages agents there. Chat with it in Command.`)}
+      <AssignmentPicker theme={theme} projects={coordinators.hostProjects} value={assignment} onChange={(a) => { setElsewhereKey(""); setPicked(a); }} />
+      {others.length ? <>
+        {note("Other hosts")}
+        <Wrap>{others.flatMap((p) => p.workspaces.map((w) => <Choice key={`${w.serverId}:${w.workspaceId}`} theme={theme} label={`${p.name} · ${w.name} (${hostLabel(w.serverId)})`}
+          selected={elsewhere === w} onPress={() => setElsewhereKey(`${w.serverId}:${w.workspaceId}`)} />))}</Wrap>
+      </> : null}
+      {!coordinators.hostProjects.length && !others.length ? <Notice theme={theme} text="No projects on reachable hosts. Add one in Paseo." /> : null}
+      {!asCoordinator && !workspace ? <Notice theme={theme} kind="error" text={`${profile?.name ?? "This specialist"} runs in one workspace only: pick one.`} /> : null}
 
       {label("When")}
       <Wrap>
@@ -140,29 +139,19 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
           : `Launches the coordinator now, then Paseo sends it a check-in message on this schedule (${TIMEZONE}).`)}
       </> : null}
 
-      {scope === "workspace" && profile ? <>
-        {label("Workspace")}
-        <Wrap>{pickable.map((p) => <Choice key={p.key} theme={theme} label={multiHost ? `${p.name} (${hostLabel(p.serverId)})` : p.name} selected={project?.key === p.key} onPress={() => { setProjectKey(p.key); setWorkspaceId(""); }} />)}</Wrap>
-        {project && project.workspaces.length > 1 ? <Wrap>{project.workspaces.map((w) => <Choice key={w.workspaceId} theme={theme} label={w.name} selected={workspace?.workspaceId === w.workspaceId} onPress={() => setWorkspaceId(w.workspaceId)} />)}</Wrap> : null}
-        {!pickable.length ? <Notice theme={theme} text="No projects on reachable hosts. Add one in Paseo." /> : null}
-        {project && workspace && !asCoordinator ? <SpecialistLaunch key={`${profile.id}:${workspace.workspaceId}`} embedded theme={theme} specialistId={profile.id} paseo={getPaseoClient(workspace.serverId)} settings={values} project={project} workspace={workspace}
-          schedule={schedule} onScheduled={() => setSchedulesVersion((v) => v + 1)} onCreated={(id) => openAgent(id, workspace.serverId)}
-          {...(workspace.serverId !== coordinators.host.id ? { otherHost: hostLabel(workspace.serverId) } : {})} /> : null}
-      </> : null}
+      {profile && project && workspace && !asCoordinator ? <SpecialistLaunch key={`${profile.id}:${workspace.workspaceId}`} embedded theme={theme} specialistId={profile.id} paseo={getPaseoClient(workspace.serverId)} settings={values} project={project} workspace={workspace}
+        schedule={schedule} onScheduled={() => setSchedulesVersion((v) => v + 1)} onCreated={(id) => openAgent(id, workspace.serverId)}
+        {...(workspace.serverId !== coordinators.host.id ? { otherHost: hostLabel(workspace.serverId) } : {})} /> : null}
 
       {asCoordinator && profile ? <>
         <Notice theme={theme} kind="error" text="Coordinators act on their own: they may start, message and stop agents in their projects, which spends tokens without asking you. They never commit, push, merge, deploy, or approve another agent's permission request without you." />
-        {profile.requireReadOnly && !ownCoordinatorInstructions(profile) ? <Notice theme={theme} kind="error" text={`NOT read-only: ${profile.name}'s enforced read-only applies in a workspace only. As a coordinator it runs in auto mode and may start agents that edit files; its instructions still ask for read-only work.`} /> : null}
+        {profile.requireReadOnly && !ownCoordinatorInstructions(profile) ? <Notice theme={theme} kind="error" text={`NOT read-only: ${profile.name}'s enforced read-only applies only to one task in one workspace. As a coordinator it runs in auto mode and may start agents that edit files; its instructions still ask for read-only work.`} /> : null}
         {coordinators.tools === false ? <Notice theme={theme} kind="error" text="Agent tools are off on this host (daemon setting mcp.injectIntoAgents), so coordinators can plan but cannot start or message agents. Workbench does not change this setting." /> : null}
         <Field theme={theme} label="Name" value={name} onChangeText={setName} placeholder={ownCoordinatorInstructions(profile) ? profile.name : `${profile.name} coordinator`} />
-        {scope === "projects" ? <>
-          {label(`Projects it coordinates (${assignmentSummary(assignment)})`)}
-          <AssignmentPicker theme={theme} projects={coordinators.hostProjects} value={assignment} onChange={setAssignment} />
-        </> : null}
         {label(`Existing agents it takes over (${adopting.length ? `${adopting.length} selected` : "optional"})`)}
         {candidates.length ? <Wrap>{candidates.slice(0, 30).map((a) => <Choice key={a.agentId} theme={theme} label={`${adopting.includes(a.agentId) ? "✓ " : ""}${a.title}`} selected={adopting.includes(a.agentId)}
           onPress={() => setAdoptIds(adopting.includes(a.agentId) ? adopting.filter((x) => x !== a.agentId) : [...adopting, a.agentId])} />)}</Wrap>
-          : note(scope === "workspace" ? "No top-level agents in this workspace." : "No top-level agents in these projects.")}
+          : note(workspace ? "No top-level agents in this workspace." : "No top-level agents in these projects.")}
         {candidates.length ? note(`They become its subagents: nested under it in Paseo and in Command, where you can release them.${candidates.length > 30 ? " Showing the 30 most recent." : ""}`) : null}
         {isPrManager ? <>
           {label("PRs to watch")}
@@ -174,7 +163,7 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
         {coordinators.message ? <Notice theme={theme} {...coordinators.message} /> : null}
         {launchNote ? <Notice theme={theme} {...launchNote} /> : null}
         <Button theme={theme} label={launching ? "Launching…" : schedule ? "Launch and schedule check-ins" : "Launch coordinator"}
-          disabled={launching || !coordinatorModel || !coordinators.hostReadable || (isPrManager && !prScope.length) || running.length >= 20 || (!!schedule && !cron) || (scope === "workspace" && !workspace)} onPress={() => void launchCoordinator()} />
+          disabled={launching || !coordinatorModel || !coordinators.hostReadable || (isPrManager && !prScope.length) || running.length >= 20 || (!!schedule && !cron)} onPress={() => void launchCoordinator()} />
         {running.length ? note(`Running: ${running.map((c) => c.name).join(", ")}. Manage them in Command.`) : null}
       </> : null}
     </Section>

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0-alpha.33 — 2026-11-02
+- Launch: the **In a workspace / Across projects** toggle is gone. **Where it runs** is one picker of projects and workspaces: exactly one workspace runs a specialist there once; more, a whole project, or every project runs it as a coordinator. The Coordinator always coordinates (one workspace or many); the Writer needs exactly one workspace. Other hosts' workspaces are listed below the picker.
+- Project and workspace picker (Launch, and Command's **Select coordination projects**): tapping a workspace of a fully selected project now selects just that workspace (it used to select all but that one). The picker has no hint text, and Launch no longer explains coordinator versus one-task runs under it.
+
 ## 0.1.0-alpha.32 — 2026-10-31
 - Installs on Paseo 0.14: Workbench no longer imports types from `@getpaseo/client`, which Paseo 0.14 rejects in a plugin installed from git ("Could not resolve type dependency").
 

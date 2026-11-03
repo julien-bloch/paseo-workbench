@@ -285,8 +285,8 @@ test('coordination picker: whole projects or single workspaces, normalized both 
   const p={projectId:'p',workspaces:[{workspaceId:'w1'},{workspaceId:'w2'},{workspaceId:'w3'}]};
   let a={projectIds:[],workspaceIds:['x9']};
   a=toggleAssignedProject(a,p); assert.deepEqual(a,{projectIds:['p'],workspaceIds:['x9']}); assert.equal(projectState(a,p),'all');
-  a=toggleAssignedWorkspace(a,p,'w2'); assert.deepEqual(a,{projectIds:[],workspaceIds:['x9','w1','w3']}); assert.equal(projectState(a,p),'some');
-  a=toggleAssignedWorkspace(a,p,'w2'); assert.deepEqual(a,{projectIds:['p'],workspaceIds:['x9']},'last one back -> whole project');
+  a=toggleAssignedWorkspace(a,p,'w2'); assert.deepEqual(a,{projectIds:[],workspaceIds:['x9','w2']},'whole project -> just that workspace'); assert.equal(projectState(a,p),'some');
+  a=toggleAssignedWorkspace(a,p,'w1'); a=toggleAssignedWorkspace(a,p,'w3'); assert.deepEqual(a,{projectIds:['p'],workspaceIds:['x9']},'last one in -> whole project');
   a=toggleAssignedProject(a,p); assert.deepEqual(a,{projectIds:[],workspaceIds:['x9']}); assert.equal(projectState(a,p),'none');
   a=toggleAssignedWorkspace(a,p,'w1'); assert.deepEqual(a,{projectIds:[],workspaceIds:['x9','w1']});
   a=toggleAssignedProject(a,p); assert.deepEqual(a,{projectIds:['p'],workspaceIds:['x9']},'some -> all');
