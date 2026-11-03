@@ -308,10 +308,10 @@ export function toggleAssignedProject(a: Assignment, p: AssignableProject): Assi
     : { projectIds: [...a.projectIds, p.projectId], workspaceIds };
 }
 
-/** Tap one workspace of a project: a whole project becomes "all but this one"; selecting its last one makes it whole again. */
+/** Tap one workspace of a project: a whole project narrows to that one; selecting its last one makes it whole again. */
 export function toggleAssignedWorkspace(a: Assignment, p: AssignableProject, workspaceId: string): Assignment {
   const all = p.workspaces.map((w) => w.workspaceId);
-  const current = projectState(a, p) === "all" ? all : all.filter((id) => a.workspaceIds.includes(id));
+  const current = projectState(a, p) === "all" ? [] : all.filter((id) => a.workspaceIds.includes(id));
   const next = current.includes(workspaceId) ? current.filter((id) => id !== workspaceId) : [...current, workspaceId];
   const projectIds = a.projectIds.filter((id) => id !== p.projectId);
   const others = a.workspaceIds.filter((id) => !all.includes(id));
