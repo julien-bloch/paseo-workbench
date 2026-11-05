@@ -183,7 +183,7 @@ export function attentionHeadline(attention: number, unobservedHosts: number, lo
   if (!loaded) return { text: "Agent status not read yet.", clear: false };
   const gap = unobservedHosts ? ` ${unobservedHosts} host(s) could not be read, so their status is unknown.` : "";
   if (attention) return { text: `${attention} agent(s) need attention on reachable hosts.${gap}`, clear: false };
-  return unobservedHosts ? { text: `No attention items on reachable hosts.${gap}`, clear: false } : { text: "No recorded agent attention items.", clear: true };
+  return unobservedHosts ? { text: `No attention items on reachable hosts.${gap}`, clear: false } : { text: "Nothing needs you.", clear: true };
 }
 
 /**

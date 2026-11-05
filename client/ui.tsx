@@ -4,11 +4,13 @@ import { Pressable, Text, TextInput, View, type TextInputProps } from "react-nat
 
 export type Theme = PluginTheme;
 
-export function Section({theme,title,subtitle,children}:{theme:Theme;title:string;subtitle?:string;children:ReactNode}){
+/** A titled card (no title where the tab already names it); with `empty`, one quiet line in place of the card. */
+export function Section({theme,title,subtitle,empty,children}:{theme:Theme;title?:string;subtitle?:string;empty?:string|undefined;children?:ReactNode}){
   return <View style={{gap:10,marginBottom:8}}>
-    <View style={{gap:3}}><Text style={{fontSize:17,fontWeight:"700",color:theme.colors.foreground}}>{title}</Text>
-      {subtitle?<Text style={{color:theme.colors.foregroundMuted,fontSize:12,lineHeight:18}}>{subtitle}</Text>:null}</View>
-    <View style={{padding:14,borderWidth:1,borderColor:theme.colors.border,borderRadius:12,backgroundColor:theme.colors.surface1,gap:12}}>{children}</View>
+    {title?<View style={{gap:3}}><Text style={{fontSize:17,fontWeight:"700",color:theme.colors.foreground}}>{title}</Text>
+      {subtitle?<Text style={{color:theme.colors.foregroundMuted,fontSize:12,lineHeight:18}}>{subtitle}</Text>:null}</View>:null}
+    {empty!==undefined?<Text style={{color:theme.colors.foregroundMuted,fontSize:13}}>{empty}</Text>
+      :<View style={{padding:14,borderWidth:1,borderColor:theme.colors.border,borderRadius:12,backgroundColor:theme.colors.surface1,gap:12}}>{children}</View>}
   </View>;
 }
 export function Button({theme,label,onPress,disabled=false,subtle=false}:{theme:Theme;label:string;onPress:()=>void;disabled?:boolean;subtle?:boolean}){
@@ -34,8 +36,8 @@ export function Field({theme,label,helper,multiline=false,value,onChangeText,pla
     {helper?<Text style={{fontSize:11,color:theme.colors.foregroundMuted}}>{helper}</Text>:null}
   </View>;
 }
-export function Notice({theme,text,kind="info"}:{theme:Theme;text:string;kind?:"error"|"success"|"info"}){
-  const color=kind==="error"?theme.colors.statusDanger:kind==="success"?theme.colors.statusSuccess:theme.colors.foregroundMuted;
+export function Notice({theme,text,kind="info"}:{theme:Theme;text:string;kind?:"error"|"warning"|"success"|"info"}){
+  const color=kind==="error"?theme.colors.statusDanger:kind==="warning"?theme.colors.statusWarning:kind==="success"?theme.colors.statusSuccess:theme.colors.foregroundMuted;
   return <Text selectable style={{color,fontSize:12,lineHeight:18}}>{text}</Text>;
 }
 export function Status({theme,status}:{theme:Theme;status:string}){

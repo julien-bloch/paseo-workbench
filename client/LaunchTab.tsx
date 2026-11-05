@@ -111,7 +111,7 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
   const note = (text: string) => <Text style={{ color: theme.colors.foregroundMuted, fontSize: 11 }}>{text}</Text>;
 
   return <View style={{ gap: 16 }}>
-    <Section theme={theme} title="Launch">
+    <Section theme={theme}>
       {label("What")}
       <Wrap>{values.helpers.map((h) => <Choice key={h.id} theme={theme} label={h.name} selected={h.id === profile?.id} onPress={() => setProfileId(h.id)} />)}</Wrap>
       {profile ? note(profile.description) : <Notice theme={theme} text="No specialists. Add one in Settings." />}
@@ -144,7 +144,7 @@ export function LaunchTab({ theme, values, projects, hostLabel, multiHost, coord
         {...(workspace.serverId !== coordinators.host.id ? { otherHost: hostLabel(workspace.serverId) } : {})} /> : null}
 
       {asCoordinator && profile ? <>
-        <Notice theme={theme} kind="error" text="Coordinators act on their own: they may start, message and stop agents in their projects, which spends tokens without asking you. They never commit, push, merge, deploy, or approve another agent's permission request without you." />
+        <Notice theme={theme} kind="warning" text="Coordinators act on their own: they may start, message and stop agents in their projects, which spends tokens without asking you. They never commit, push, merge, deploy, or approve another agent's permission request without you." />
         {profile.requireReadOnly && !ownCoordinatorInstructions(profile) ? <Notice theme={theme} kind="error" text={`NOT read-only: ${profile.name}'s enforced read-only applies only to one task in one workspace. As a coordinator it runs in auto mode and may start agents that edit files; its instructions still ask for read-only work.`} /> : null}
         {coordinators.tools === false ? <Notice theme={theme} kind="error" text="Agent tools are off on this host (daemon setting mcp.injectIntoAgents), so coordinators can plan but cannot start or message agents. Workbench does not change this setting." /> : null}
         <Field theme={theme} label="Name" value={name} onChangeText={setName} placeholder={ownCoordinatorInstructions(profile) ? profile.name : `${profile.name} coordinator`} />

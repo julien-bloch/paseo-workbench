@@ -29,7 +29,7 @@ export function RunningList({ theme, kind = "running", agents, workspaces, needs
       const where = a.labels[COORDINATOR_LABEL] === COORDINATOR_VALUE ? "Coordinator" : w ? `${w.projectName} / ${w.name}` : null;
       const alsoNeedsYou = needsYou.has(`${a.serverId}:${a.agentId}`);
       return <Pressable key={row.key} accessibilityRole="button" accessibilityLabel={`Open ${a.title}`} onPress={() => openAgent(a.agentId, a.serverId)}
-        style={({ pressed }) => ({ gap: 2, marginLeft: Math.min(row.depth, 4) * 14, paddingLeft: 10, paddingVertical: 6, borderLeftWidth: 2, borderColor: color, borderRadius: 4, backgroundColor: pressed ? theme.colors.surface2 : "transparent" })}>
+        style={({ pressed }) => ({ gap: 2, marginLeft: Math.min(row.depth, 4) * 14 - 8, marginRight: -8, paddingHorizontal: 8, paddingVertical: 6, borderRadius: 6, backgroundColor: pressed ? theme.colors.surface2 : "transparent" })}>
         <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{row.depth ? "↳ " : ""}{a.title}</Text>
         <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>
           <Text style={{ color, fontWeight: "600" }}>{finished ? "Finished" : a.status === "initializing" ? "Starting" : "Working"}</Text>

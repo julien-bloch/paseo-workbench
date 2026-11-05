@@ -98,7 +98,7 @@ export function Command({ host, theme, layout, values, directory, projects, open
         {chooser}
         <Section theme={theme} title="Its agents" subtitle="Everything it started or took over, nested by who started what. Tap one to open it.">
           {needs.length ? <Notice theme={theme} kind="error" text={`${needs.length} of its agents need you: ${needs.map((n) => `${n.title} (${n.headline.toLowerCase()})`).join("; ")}`} /> : null}
-          <AgentTree theme={theme} agents={team} native={native} attention={attention} openAgent={openAgent} onSummarize={onSummarize} releasable={direct} onRelease={(id) => void release(id)} empty="It has no agents yet." />
+          <AgentTree theme={theme} agents={team} native={native} workspaces={directory.workspaces} attention={attention} openAgent={openAgent} onSummarize={onSummarize} releasable={direct} onRelease={(id) => void release(id)} empty="It has no agents yet." />
         </Section>
       </View>
     </View> : <Notice theme={theme} text={`${current.name} is not running. Start it above to chat with it.`} />}

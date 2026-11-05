@@ -149,14 +149,14 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
     {Object.entries(directory.errors).map(([id,error])=><Notice key={id} theme={theme} text={`${hostLabel(id)}: ${error}`} kind="error"/>)}
     {tab==="launch"?<LaunchTab theme={theme} values={launchValues} projects={projects} hostLabel={hostLabel} multiHost={directory.hosts.length>1} coordinators={coordinators} openAgent={openAgent}
       onCoordinatorLaunched={id=>{setCommandSelection(id);setTab("command")}}/>:null}
-    {tab==="command"?<Section theme={theme} title="Needs attention">
+    {tab==="command"?<Section theme={theme} title="Needs attention" empty={!attention.length&&headline.clear?headline.text:undefined}>
       {unobserved||!attention.length?<Notice theme={theme} kind={headline.clear?"info":"error"} text={headline.text}/>:null}
       <AttentionList theme={theme} groups={attentionByProject} hostSuffix={id=>id&&directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
-    {tab==="command"?<Section theme={theme} title={`Running (${running.length})`}>
+    {tab==="command"?<Section theme={theme} title={`Running (${running.length})`} empty={running.length?undefined:"Nothing is running."}>
       <RunningList theme={theme} agents={watched} workspaces={directory.workspaces} needsYou={new Set(attentionIndex.keys())} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
-    {tab==="command"?<Section theme={theme} title={`Finished (${readyToReview.length})`} subtitle="Paseo's green dot: finished since you last opened it. Opening it in Paseo clears it.">
+    {tab==="command"?<Section theme={theme} title={`Finished (${readyToReview.length})`} subtitle="Paseo's green dot: finished since you last opened it. Opening it in Paseo clears it." empty={readyToReview.length?undefined:"Nothing new has finished."}>
       <RunningList theme={theme} kind="finished" agents={watched} workspaces={directory.workspaces} needsYou={new Set()} hostSuffix={id=>directory.hosts.length>1?` (${hostLabel(id)})`:""} openAgent={openAgent}/>
     </Section>:null}
     {tab==="command"?<Command host={host} theme={theme} layout={layout} values={values} directory={directory} projects={projects} openAgent={openAgent} onSummarize={summarizeAction}
@@ -181,7 +181,7 @@ function ReadyWorkbench({host,theme,layout,navigation,directory,values,onSave}:P
             <Button theme={theme} subtle label={confirmBulk?`Confirm: archive ${finished.length} finished specialist${finished.length===1?"":"s"}`:`Archive finished specialists (${finished.length})`} onPress={()=>{if(!confirmBulk){setConfirmBulk(true);return;}setConfirmBulk(false);void archive(finished)}}/>
             {confirmBulk?<Button theme={theme} subtle label="Cancel" onPress={()=>setConfirmBulk(false)}/>:null}
           </Wrap>:null}
-          <AgentTree theme={theme} agents={agents} native={native} attention={allAttentionIndex} openAgent={openAgent} onSummarize={summarizeAction} onArchive={archiveOne}
+          <AgentTree theme={theme} agents={agents} native={native} attention={allAttentionIndex} openAgent={openAgent} onSummarize={summarizeAction} onArchive={archiveOne} workspaces={project?undefined:directory.workspaces}
             watched={(agentId,serverId)=>{
               const a=directory.agents.find(x=>x.serverId===serverId&&x.agentId===agentId);
               const project=a?agentProjectKey(a,directory.workspaces):null;
