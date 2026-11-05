@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.0-alpha.34 — 2026-11-05
+- Model pickers (Launch, Settings, coordinator editor) list providers first; tap one to see its models. The provider holding the current choice shows it ("codex · GPT-6.1-Sol"). A host reporting dozens of models no longer fills the form with one chip per model.
+- Overview and a coordinator's agent tree: one line per agent under its title, with its state first (what it needs from you, Working, Starting, Finished, or a failure; idle agents show none), then its project and workspace when every project is shown. On a phone, an agent's Summarize and Archive buttons wrap below it together.
+- Command: an empty Needs attention, Running or Finished section is one line ("Nothing needs you.") instead of an empty card; rows no longer have a coloured bar on the left (the coloured state word already says it).
+- Launch: no "Launch" heading under the Launch tab; the note that coordinators act on their own is amber (a warning), not error red. "NOT read-only" stays red.
+
 ## 0.1.0-alpha.33 — 2026-11-02
 - Launch: the **In a workspace / Across projects** toggle is gone. **Where it runs** is one picker of projects and workspaces: exactly one workspace runs a specialist there once; more, a whole project, or every project runs it as a coordinator. The Coordinator always coordinates (one workspace or many); the Writer needs exactly one workspace. Other hosts' workspaces are listed below the picker.
 - Project and workspace picker (Launch, and Command's **Select coordination projects**): tapping a workspace of a fully selected project now selects just that workspace (it used to select all but that one). The picker has no hint text, and Launch no longer explains coordinator versus one-task runs under it.
